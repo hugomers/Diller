@@ -51,7 +51,7 @@ class ProvidersController extends Controller
         }
         }else{$inex["ms"][]=null;}//en caso de no haber me devueve un nulo
 
-        $sql = "SELECT CODPRO, NOFPRO, DOMPRO, POBPRO, CPOPRO, PROPRO FROM F_PRO";//muestra los proveedores de access
+        $sql = "SELECT CODPRO, NOFPRO FROM F_PRO";//muestra los proveedores de access
         $exec = $this->conn->prepare($sql);
         $exec -> execute();
         $filaspro=$exec->fetchall(\PDO::FETCH_ASSOC);
