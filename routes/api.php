@@ -20,5 +20,9 @@ Route::prefix('clients')->group(function(){
 
 Route::prefix('products')->group(function(){
     Route::get('/',[ProductsController::class,'index']);
-    Route::get('/replyClient',[ProductsController::class,'replyProducts']);
+    Route::get('/pairing',[ProductsController::class,'pairingProducts']);
+    Route::get('/replaceProducts',[ProductsController::class,'replaceProducts']);
+    Route::post('/missing',[ProductsController::class,'missingProducts']);
+    Route::get('/highProducts',[ProductsController::class,'highProducts']);
+
 });
