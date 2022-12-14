@@ -404,6 +404,7 @@ class ProductsController extends Controller
         foreach($articulos as $art){ 
             
             
+            
             $codigo = trim($art["CODIGO"]);
             $deslarga = trim($art["DESCRIPCION"]);
             $desgen = trim(substr($art["DESCRIPCION"],0,50));
@@ -412,15 +413,21 @@ class ProductsController extends Controller
             $famart = trim($art["FAMILIA"]);
             $cat = trim($art["CATEGORIA"]);
             $date_format = date("d/m/Y");
-            $barcode = trim($art["CB"]);
-            $cost = $art["COSTO"];
-            $medidas = trim($art["MEDIDAS NAV"]);
-            $luces = trim($art["#LUCES"]);
+            // $barcode = trim($art["CB"]);
+            if(isset($art["CB"])){$barcode = trim($art["CB"]);}else{$barcode = null;}
+            // $cost = $art["COSTO"];
+            if(isset($art["COSTO"])){$cost = $art["COSTO"];}else{$cost = 0;}
+            // $medidas = trim($art["MEDIDAS NAV"]);
+            if(isset($art["MEDIDAS NAV"])){$medidas = trim($art["MEDIDAS NAV"]);}else{$medidas = null;}
+            // $luces = trim($art["#LUCES"]);
+            if(isset($art["#LUCES"])){$luces = trim($art["#LUCES"]);}else{$luces = null;}
             $PXC = trim($art["PXC"]);
             $refart = trim($art["REFERENCIA"]);
             $cp3art = trim($art["UNIDA MED COMPRA"]);
 
             $codbar = $barcode == null ? "'"."'" : $barcode;
+
+            // return response()->json($barcode);
 
             $articulo  = [              
                 $codigo,
@@ -484,8 +491,11 @@ class ProductsController extends Controller
                     $updtms = DB::table('products')->where('code',$codigo)->update(['_category'=>$caty,'updated_at'=>now(),'barcode'=>$barcode,'cost'=>$cost,'pieces'=>$PXC,'reference'=>$refart,'_assortment_unit'=>$assortmen]);
                     if($updtms){$mysql['actualizados'][]="Se actualizo el modelo ".$codigo." con exito";}else{$mysql['fail']['actualizados'][]="hubo problemas al actualizar el modelo ".$codigo;}
                 }else{
+                    $shor = DB::table('products')->where('short_code',$art["CODIGO CORTO"])->first();
+                    if($shor){$mysql['fail']['insertados']="El codigo corto ".$art["CODIGO CORTO"]." a sido otorgado a el codigo ".$shor->code."no se puede duplicar";}else{
                     $insmysql = DB::table('products')->insert($insms);
                     if($insmysql){$mysql['insertados'][]="Se inserto correctamente el modelo ".$codigo;}else{$mysql['fail']['insertados'][]="el modelo ".$codigo." tuvo un error al insertar";}
+                    }
                 }
                 
                 //cedis
@@ -576,6 +586,10 @@ class ProductsController extends Controller
             ]
         ];
         return response()->json($res);
+
+    }
+
+    public function highPrices(Request $request){
 
     }
 }
