@@ -24,5 +24,6 @@ Route::prefix('products')->group(function(){
     Route::get('/replaceProducts',[ProductsController::class,'replaceProducts']);
     Route::post('/missing',[ProductsController::class,'missingProducts']);
     Route::get('/highProducts',[ProductsController::class,'highProducts']);
+    Route::get('/highPrices',[ProductsController::class,'highPrices']);
 
 });

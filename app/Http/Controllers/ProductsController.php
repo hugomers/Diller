@@ -112,7 +112,7 @@ class ProductsController extends Controller
             $codigo[]="'".$row['CODART']."'";
             $mysqlcod[]=$row['CODART'];
         }
-        $stores = DB::table('stores')->where('_state', 1)->where('_type', 2)->get();//se obtienen sucursales de mysql
+        $stores = DB::table('stores')->where('_state', 1)->where('_type', 2)->where('_price_type', 1)->get();//se obtienen sucursales de mysql
         foreach($stores as $store){//inicio de foreach de sucursales
             $url = $store->local_domain."/Addicted/public/api/products/pairing";//se optiene el inicio del dominio de la sucursal
             $ch = curl_init($url);//inicio de curl
@@ -426,6 +426,8 @@ class ProductsController extends Controller
             $cp3art = trim($art["UNIDA MED COMPRA"]);
 
             $codbar = $barcode == null ? "'"."'" : $barcode;
+            $luz = $luces == null ? "'"."'" : $luces;
+            $med = $medidas == null ? "'"."'" : $medidas;
 
             // return response()->json($barcode);
 
@@ -450,10 +452,10 @@ class ProductsController extends Controller
                 1,
                 1,
                 $cat,
-                $luces,
+                $luz,
                 $cp3art,
                 $art["PRO RES"],
-                $medidas,
+                $med,
                 0,
                 "Peso"
             ];
@@ -503,6 +505,8 @@ class ProductsController extends Controller
                 $exec = $this->conn->prepare($sqlart);
                 $exec -> execute([$codigo]);
                 $arti=$exec->fetch(\PDO::FETCH_ASSOC);
+
+
      
                 if($arti){
                     $update = "UPDATE F_ART SET FAMART = "."'".$famart."'"." , CP1ART = "."'".$cat."'"."  , FUMART = "."'".$date_format."'".", EANART = ".$codbar.", PCOART = ".$cost.", UPPART = ".$PXC." , EQUART = ".$PXC.", REFART = "."'".$refart."'"."  , CP3ART = "."'".$cp3art."'"."  WHERE CODART = ? "; 
@@ -515,15 +519,19 @@ class ProductsController extends Controller
                     $exec = $this->conn->prepare($codigob);
                     $exec -> execute();
                     $barras=$exec->fetch(\PDO::FETCH_ASSOC);
-                    if($barras){$fail['codigo_barras'][]="El codigo de barras ".$barcode." esta otorgado a el articulo ".$barras['CODART']." no se pueden duplicar";}
-                    }else{
+                    
+                    if($barras){
+                        $fail['codigo_barras'][]="El codigo de barras ".$barcode." esta otorgado a el articulo ".$barras['CODART']." no se pueden duplicar";}
+                    }
                         
                         $codigoc = "SELECT CODART, CCOART FROM F_ART WHERE CCOART = ".$art["CODIGO CORTO"];
                         $exec = $this->conn->prepare($codigoc);
                         $exec -> execute();
                         $corto=$exec->fetch(\PDO::FETCH_ASSOC);
+                        
                     
-                        if($corto){$fail['codigo_corto'][]="El codigo corto ".$art["CODIGO CORTO"]." esta otorgado al articulo ".$corto['CODART']." no se pueden duplicar";
+                        if($corto){
+                            $fail['codigo_corto'][]="El codigo corto ".$art["CODIGO CORTO"]." esta otorgado al articulo ".$corto['CODART']." no se pueden duplicar";
                         }else{
                             $insert = "INSERT INTO F_ART (CODART,EANART,FAMART,DESART,DEEART,DETART,DLAART,EQUART,CCOART,PHAART,REFART,FTEART,PCOART,FALART,FUMART,UPPART,CANART,CAEART,UMEART,CP1ART,CP2ART,CP3ART,CP4ART,CP5ART,MPTART,UEQART) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
                             $exec = $this->conn->prepare($insert);
@@ -542,13 +550,12 @@ class ProductsController extends Controller
                             }
                             $insertados[]="Se inserto el codigo ".$codigo."con exito";
                         }
-                    }
                 } 
             }else{$fail['categoria'][]="no existe la categoria ".$cat." de la familia ".$famart." de el producto ".$codigo;}    
         }
 
 
-        $stores = DB::table('stores')->where('_state', 1)->where('_type', 2)->get();//se obtienen sucursales de mysql
+        $stores = DB::table('stores')->where('_state', 1)->where('_type', 2)->where('_price_type', 1)->get();//se obtienen sucursales de mysql
         foreach($stores as $store){//inicio de foreach de sucursales
             $url = $store->local_domain."/Addicted/public/api/products/highProducts";//se optiene el inicio del dominio de la sucursal
             $ch = curl_init($url);//inicio de curl
@@ -590,6 +597,292 @@ class ProductsController extends Controller
     }
 
     public function highPrices(Request $request){
+        $priceslocal = [];
+        $pricesforeign = [];
+        $fail = [];
+        $prices = $request->all();
+        $margin = 1.05;
+        $oferta = 0;
+        $linea= 0;
+        foreach($prices as $price){
+            $articulo = $price['MODELO'];
+            $cosfs = "SELECT PCOART FROM F_ART WHERE CODART = ?";
+            $exec = $this->conn->prepare($cosfs);
+            $exec -> execute([$articulo]);
+            $cossis=$exec->fetch(\PDO::FETCH_ASSOC);
+            if($cossis){
+                //preparando request
+                if(isset($price["COSTO"])){$costo = round($price["COSTO"],2);}else{$costo = intval($cossis['PCOART']);}
+                if(isset($price["AAA"])){$aaa = round($price["AAA"],2);}else{$aaa = intval($cossis['PCOART']);}
+                $centro = round($price["CENTRO"],0);
+                $especial = round($price["ESPECIAL"],0);
+                $caja = round($price["CAJA"],0);
+                $docena = round($price["DOCENA"],0);
+                $mayoreo = round($price["MAYOREO"],0);
+                //calculando menudeo
+                if(isset($price["MENUDEO"])){
+                    $menudeo = round($price["MENUDEO"],0);
+                if($menudeo == $centro){$oferta++;}else{$linea++;};
+                }else{
+                if($mayoreo == $centro){
+                    $menudeo = $caja;
+                    $oferta++;
+                }elseif(($mayoreo >= 0) && ($mayoreo <= 49)){
+                    $menudeo = $mayoreo + 5;
+                    $linea++;
+                }elseif(($mayoreo >= 50) && ($mayoreo <= 99)){
+                    $menudeo = $mayoreo + 10;
+                    $linea++;
+                }elseif(($mayoreo >= 100) && ($mayoreo <= 499)){
+                    $menudeo = $mayoreo + 20;
+                    $linea++;
+                }elseif(($mayoreo >= 500) && ($mayoreo <= 999)){
+                    $menudeo = $mayoreo + 50;
+                    $linea++;
+                }elseif($mayoreo >= 1000){
+                    $menudeo =  $mayoreo + 100; 
+                    $linea++;
+                }}
+
+                $mayofor = round($mayoreo*$margin,0);
+                if(isset($price["MENUDEO"])){
+                    $menfor = round($price["MENUDEO"]*$margin,0);
+                }else{
+                if($mayofor == round($centro*$margin,0)){
+                    $menfor = round($caja*$margin,0);
+                }elseif(($mayofor >= 0) && ($mayofor <= 49)){
+                    $menfor = $mayofor + 5;
+                }elseif(($mayofor >= 50) && ($mayofor <= 99)){
+                    $menfor = $mayofor + 10;
+                }elseif(($mayofor >= 100) && ($mayofor <= 499)){
+                    $menfor = $mayofor + 20;
+                }elseif(($mayofor >= 500) && ($mayofor <= 999)){
+                    $menfor = $mayofor + 50;
+                }elseif($mayofor >= 1000){
+                    $menfor =  $mayofor + 100; 
+                }}
+            
+                if($costo <= $aaa){
+                    if($aaa <= $centro){
+                        if($centro <= $especial){
+                            if($especial <= $caja){
+                                if($caja <= $docena){
+                                    if($docena <= $mayoreo){
+                                        if($mayoreo <= $menudeo){
+                                            $priceslocal [] = [
+                                                "MODELO"=>$articulo,
+                                                "COSTO"=>$costo,
+                                                "AAA"=>$aaa,
+                                                "CENTRO"=>$centro,
+                                                "ESPECIAL"=>$especial,
+                                                "CAJA"=>$caja,
+                                                "DOCENA"=>$docena,
+                                                "MAYOREO"=>$mayoreo,
+                                                "MENUDEO"=>$menudeo
+                                            ];
+                                            $pricesforeign [] = [
+                                                "MODELO"=>$articulo,
+                                                "COSTO"=>round($costo*$margin,2),
+                                                "CENTRO"=>round($centro*$margin,0),
+                                                "ESPECIAL"=>round($especial*$margin,0),
+                                                "CAJA"=>round($caja*$margin,0),
+                                                "DOCENA"=>round($docena*$margin,0),
+                                                "MAYOREO"=>round($mayoreo*$margin,0),
+                                                "MENUDEO"=>$menfor
+                                            ];
+                                        }else{$fail[]="$articulo precio MAYOREO mas alto que MENUDEO ";}
+                                    }else{$fail[]="$articulo precio DOCENA mas alto que MAYOREO ";}
+                                }else{$fail[]="$articulo precio CAJA mas alto que DOCENA ";}
+                            }else{$fail[]="$articulo precio ESPECIAL mas alto que CAJA ";}
+                        }else{$fail[]="$articulo precio CENTRO mas alto que ESPECIAL ";}
+                    }else{$fail[]="$articulo precio AAA mas alto que CENTRO ";}             
+                }else{$fail[]="$articulo precio COSTO mas alto que AAA";}
+            }else{$fail[] = "El modelo ".$articulo." no existe. Favor de revisar";}
+        }
+        if($fail){
+            $res = [
+                "msg"=>"No se puede serguir con el proceso debido a una falla",
+                "fail"=>$fail
+            ];
+            return response()->json($res);
+        }else{
+        $pricesloc = $this->localPrices($priceslocal);
+        $pricesfor = $this->foreingPrices($pricesforeign);
+        $res = [
+            "ofertas"=>$oferta,
+            "lineas"=>$linea,
+            "local"=>$priceslocal,
+            "foraneo"=>$pricesforeign,
+            "fail"=>$fail,
+            "enviolocal"=>$pricesloc,
+            "envioforaneo"=>$pricesfor
+        ];
+
+        return response()->json($res);
+        }
+    }
+    
+    public function localPrices($priceslocal){
+        $goals=[
+            "factusol"=>[],
+            "gvapp"=>[],
+        ];
+        $fails=[
+            "factusol"=>[],
+            "gvapp"=>[],
+        ];
+        $failstores=[];
+        $stor=[];
+        $date_format = date("d/m/Y");
+        $dato = $priceslocal;
+        foreach($priceslocal as $price){
+
+            $product = DB::table('products')->where('code',$price['MODELO'])->value('id');
+
+            $aaa = "UPDATE F_LTA SET PRELTA = ". $price['AAA']." WHERE ARTLTA = ? AND TARLTA = 7";
+            $exec = $this->conn->prepare($aaa);
+            $exec -> execute([$price["MODELO"]]);
+            
+            $msaaa = DB::table('product_prices')->where('_product',$product)->where('_type',1)->where('_rate',7)->update(['price'=>$price['AAA']]);
+            
+            $centro = "UPDATE F_LTA SET PRELTA = ". $price['CENTRO']." WHERE ARTLTA = ?  AND TARLTA = 6";
+            $exec = $this->conn->prepare($centro);
+            $exec -> execute([$price["MODELO"]]);
+           
+            $mscentro = DB::table('product_prices')->where('_product',$product)->where('_type',1)->where('_rate',6)->update(['price'=>$price['CENTRO']]);
+           
+            $especial = "UPDATE F_LTA SET PRELTA = ". $price['ESPECIAL']." WHERE ARTLTA = ? AND TARLTA = 5";
+            $exec = $this->conn->prepare($especial);
+            $exec -> execute([$price["MODELO"]]);
+            
+            $msespecial = DB::table('product_prices')->where('_product',$product)->where('_type',1)->where('_rate',5)->update(['price'=>$price['ESPECIAL']]);
+            
+            $caja = "UPDATE F_LTA SET PRELTA = ". $price['CAJA']." WHERE ARTLTA = ? AND TARLTA = 4";
+            $exec = $this->conn->prepare($caja);
+            $exec -> execute([$price["MODELO"]]);
+           
+            $mscaja = DB::table('product_prices')->where('_product',$product)->where('_type',1)->where('_rate',4)->update(['price'=>$price['CAJA']]);
+            
+            $docena = "UPDATE F_LTA SET PRELTA = ". $price['DOCENA']." WHERE ARTLTA = ? AND TARLTA = 3";
+            $exec = $this->conn->prepare($docena);
+            $exec -> execute([$price["MODELO"]]);
+          
+            $msdocena = DB::table('product_prices')->where('_product',$product)->where('_type',1)->where('_rate',3)->update(['price'=>$price['DOCENA']]);
+    
+            $mayoreo = "UPDATE F_LTA SET PRELTA = ". $price['MAYOREO']." WHERE ARTLTA = ?  AND TARLTA = 2";
+            $exec = $this->conn->prepare($mayoreo);
+            $exec -> execute([$price["MODELO"]]);
+          
+            $msmayoreo = DB::table('product_prices')->where('_product',$product)->where('_type',1)->where('_rate',2)->update(['price'=>$price['MAYOREO']]);
+            
+            $menudeo = "UPDATE F_LTA SET PRELTA = ". $price['MENUDEO']." WHERE ARTLTA = ? AND TARLTA = 1";
+            $exec = $this->conn->prepare($menudeo);
+            $exec -> execute([$price["MODELO"]]);
+           
+            $msmenudeo = DB::table('product_prices')->where('_product',$product)->where('_type',1)->where('_rate',1)->update(['price'=>$price['MENUDEO']]);
+           
+            $costo = "UPDATE F_ART SET PCOART = ". $price['COSTO']." , FUMART = ".$date_format." WHERE CODART = ? ";
+            $exec = $this->conn->prepare($costo);
+            $exec -> execute([$price["MODELO"]]);
+            if($exec){$goals['factusol'][]=$price['MODELO']." Precios Modificados factusol";}else{$fails['factusol']= $price['MODELO']." error al actualizar factusol";}
+           
+            $mscost =DB::table('products')->where('id',$product)->update(['cost'=>$price['COSTO'],'updated_at'=>now()]);
+            if($mscost){$goals['gvapp'][]=$price['MODELO']." Precios Modificados mysql";}else{$fails['gvapp']= $price['MODELO']." error al actualizar mysql";}
+           
+
+        }
+
+        $stores = DB::table('stores')->where('_state', 1)->where('_type', 2)->where('_price_type', 1)->get();//se obtienen sucursales de mysql
+        foreach($stores as $store){//inicio de foreach de sucursales
+            $url = $store->local_domain."/Addicted/public/api/products/highPrices";//se optiene el inicio del dominio de la sucursal
+            $ch = curl_init($url);//inicio de curl
+            $data = json_encode(["prices" => $dato]);//se codifica el arreglo de los proveedores
+            //inicio de opciones de curl
+            curl_setopt($ch,CURLOPT_POSTFIELDS,$data);//se envia por metodo post
+            curl_setopt($ch,CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_HEADER, 0);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type:application/json'));
+            //fin de opciones e curl
+            $exec = curl_exec($ch);//se executa el curl
+            $exc = json_decode($exec);//se decodifican los datos decodificados
+            if(is_null($exc)){//si me regresa un null
+                $failstores[] =$store->alias." Sin conexion";//la sucursal se almacena en sucursales fallidas
+            }else{
+                // $stor[] = $store->alias." cambios hechos";//de lo contrario se almacenan en sucursales
+                $stor[] =["sucursal"=>$store->alias, "mssg"=>$exc];
+            }
+            curl_close($ch);//cirre de curl
+        }//fin de foreach de sucursales
+        $res = [
+            "goals"=>$goals,
+            "fail"=>$fails,
+            "sucursales"=>[
+                "goals"=>$stor,
+                "fail"=>$failstores
+            ]
+        ];
+        return $res;
+
+    }
+
+    public function foreingPrices($pricesforeign){
+        $goals=[
+            "gvapp"=>[],
+        ];
+        $fails=[
+            "gvapp"=>[],
+        ];
+        $failstores=[];
+        $stor=[];
+        $date_format = date("d/m/Y");
+        $dato = $pricesforeign;
+        foreach($pricesforeign as $price){
+            $product = DB::table('products')->where('code',$price['MODELO'])->value('id');
+            if($product){
+            $mscentro = DB::table('product_prices')->where('_product',$product)->where('_type',2)->where('_rate',6)->update(['price'=>$price['CENTRO']]);
+            $msespecial = DB::table('product_prices')->where('_product',$product)->where('_type',2)->where('_rate',5)->update(['price'=>$price['ESPECIAL']]);
+            $mscaja = DB::table('product_prices')->where('_product',$product)->where('_type',2)->where('_rate',4)->update(['price'=>$price['CAJA']]);
+            $msdocena = DB::table('product_prices')->where('_product',$product)->where('_type',2)->where('_rate',3)->update(['price'=>$price['DOCENA']]);
+            $msmayoreo = DB::table('product_prices')->where('_product',$product)->where('_type',2)->where('_rate',2)->update(['price'=>$price['MAYOREO']]);
+            $msmenudeo = DB::table('product_prices')->where('_product',$product)->where('_type',2)->where('_rate',1)->update(['price'=>$price['MENUDEO']]);
+            $goals['gvapp'][]=$price['MODELO']." Se actualizo correctamente";
+            }else{$fails['gvapp'][]= $price['MODELO']." hubo un error al actualizar";}
+        }
+       
+        $stores = DB::table('stores')->where('_state', 1)->where('_type', 2)->where('_price_type', 2)->get();//se obtienen sucursales de mysql
+        foreach($stores as $store){//inicio de foreach de sucursales
+            $url = $store->local_domain."/Addicted/public/api/products/highPricesForeign";//se optiene el inicio del dominio de la sucursal
+            $ch = curl_init($url);//inicio de curl
+            $data = json_encode(["prices" => $dato]);//se codifica el arreglo de los proveedores
+            //inicio de opciones de curl
+            curl_setopt($ch,CURLOPT_POSTFIELDS,$data);//se envia por metodo post
+            curl_setopt($ch,CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_HEADER, 0);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type:application/json'));
+            //fin de opciones e curl
+            $exec = curl_exec($ch);//se executa el curl
+            $exc = json_decode($exec);//se decodifican los datos decodificados
+            if(is_null($exc)){//si me regresa un null
+                $failstores[] =$store->alias." Sin conexion";//la sucursal se almacena en sucursales fallidas
+            }else{
+                // $stor[] = $store->alias." cambios hechos";//de lo contrario se almacenan en sucursales
+                $stor[] =["sucursal"=>$store->alias, "mssg"=>$exc];
+            }
+            curl_close($ch);//cirre de curl
+        }//fin de foreach de sucursales
+        $res = [
+            "goals"=>$goals,
+            "fail"=>$fails,
+            "sucursales"=>[
+                "goals"=>$stor,
+                "fail"=>$failstores
+            ]
+        ];
+        return $res;
 
     }
 }
