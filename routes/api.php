@@ -27,4 +27,5 @@ Route::prefix('products')->group(function(){
     Route::get('/highPrices',[ProductsController::class,'highPrices']);
     Route::get('/highPueblaInvoice',[ProductsController::class,'highPueblaInvoice']);
     Route::get('/highPueblaProducts',[ProductsController::class,'highPueblaProducts']);
+    Route::get('/replyProducts',[ProductsController::class,'replyProducts']);
 });
