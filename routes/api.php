@@ -25,5 +25,6 @@ Route::prefix('products')->group(function(){
     Route::post('/missing',[ProductsController::class,'missingProducts']);
     Route::get('/highProducts',[ProductsController::class,'highProducts']);
     Route::get('/highPrices',[ProductsController::class,'highPrices']);
-
+    Route::get('/highPueblaInvoice',[ProductsController::class,'highPueblaInvoice']);
+    Route::get('/highPueblaProducts',[ProductsController::class,'highPueblaProducts']);
 });

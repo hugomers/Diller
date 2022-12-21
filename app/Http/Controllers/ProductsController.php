@@ -885,4 +885,220 @@ class ProductsController extends Controller
         return $res;
 
     }
+
+    public function highPueblaInvoice(Request $request){
+        $date = $request->date;
+        $failstores=[];
+        $stor=[];
+
+
+        $products = "SELECT F_ART.CODART,F_ART.EANART,F_ART.FAMART,F_ART.DESART,F_ART.DEEART,F_ART.DETART,F_ART.DLAART,F_ART.EQUART,F_ART.CCOART,F_ART.PHAART,F_ART.REFART,F_ART.FTEART,F_ART.PCOART,F_ART.UPPART,F_ART.CANART,F_ART.CAEART,F_ART.UMEART,F_ART.CP1ART,F_ART.CP2ART,F_ART.CP3ART,F_ART.CP4ART,F_ART.CP5ART,F_ART.FALART,F_ART.FUMART,F_ART.MPTART,F_ART.UEQART FROM ((F_ART  INNER JOIN F_LFA ON F_LFA.ARTLFA = F_ART.CODART) INNER JOIN F_FAC ON F_FAC.TIPFAC = F_LFA.TIPLFA AND F_FAC.CODFAC = F_LFA.CODLFA) WHERE F_FAC.CLIFAC = 20  AND  F_FAC.FECFAC >= #".$date."#";
+        $exec = $this->conn->prepare($products);
+        $exec -> execute();
+        $articulos=$exec->fetchall(\PDO::FETCH_ASSOC);
+        if($articulos){
+        $dat =$this->highPricesPueInvoice($date);
+        
+        $colsTabProds = array_keys($articulos[0]);
+        
+        foreach($articulos as $art){
+            foreach($colsTabProds as $col){ $art[$col] = utf8_encode($art[$col]); }
+            $arti[]=$art;
+        }       
+                
+        $stores = DB::table('stores')->where('_state', 1)->where('_type', 2)->where('_price_type', 2)->get();//se obtienen sucursales de mysql
+        foreach($stores as $store){//inicio de foreach de sucursales
+            $url = $store->local_domain."/Addicted/public/api/products/insertPub";//se optiene el inicio del dominio de la sucursal
+            $ch = curl_init($url);//inicio de curl
+            $data = json_encode(["articulos" => $arti]);//se codifica el arreglo de los proveedores
+            //inicio de opciones de curl
+            curl_setopt($ch, CURLOPT_POSTFIELDS,$data);//se envia por metodo post
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_HEADER, 0);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type:application/json'));
+            //fin de opciones e curl
+            $exec = curl_exec($ch);//se executa el curl
+            $exc = json_decode($exec);//se decodifican los datos decodificados
+            if(is_null($exc)){//si me regresa un null
+                $failstores[] =$store->alias." sin conexion";//la sucursal se almacena en sucursales fallidas
+            }else{
+                $stor[] =["sucursal"=>$store->alias, "mssg"=>$exc];
+            }
+            curl_close($ch);//cirre de curl
+        }//fin de foreach de sucursales
+        
+    
+        return response()->json(["articulos"=>[
+                                    "goals"=>$stor,
+                                    "fail"=>$failstores
+                                ],
+                                 "precios" => $dat
+        ]);
+        }
+            else{return response()->json("no hay articulos que exportar");}
+    }
+    
+    public function highPricesPueInvoice($date){
+        $failstores=[];
+        $stor=[];
+        // $prices = "SELECT F_LTA.* FROM ((F_LTA  INNER JOIN F_LFA ON F_LFA.ARTLFA = F_LTA.ARTLTA) INNER JOIN F_FAC ON F_FAC.TIPFAC = F_LFA.TIPLFA AND F_FAC.CODFAC = F_LFA.CODLFA) WHERE F_FAC.CLIFAC = 20 AND F_LTA.TARLTA NOT IN (7) AND  F_FAC.FECFAC >= #".$date."#";
+       $prices = "SELECT 
+       F_LTA.ARTLTA AS CODIGO,
+       MAX(iif(F_LTA.TARLTA = 6 , F_LTA.PRELTA ,0 )) AS CENTRO,
+       MAX(iif(F_LTA.TARLTA = 5 , F_LTA.PRELTA ,0 )) AS ESPECIAL,
+       MAX(iif(F_LTA.TARLTA = 4 , F_LTA.PRELTA ,0 )) AS CAJA,
+       MAX(iif(F_LTA.TARLTA = 3 , F_LTA.PRELTA ,0 )) AS DOCENA,
+       MAX(iif(F_LTA.TARLTA = 2 , F_LTA.PRELTA ,0 )) AS MAYOREO
+       FROM 
+       ((F_LTA  
+       INNER JOIN F_LFA ON F_LFA.ARTLFA = F_LTA.ARTLTA) 
+       INNER JOIN F_FAC ON F_FAC.TIPFAC = F_LFA.TIPLFA AND F_FAC.CODFAC = F_LFA.CODLFA) 
+       WHERE F_FAC.CLIFAC = 20 AND F_LTA.TARLTA NOT IN (7) AND  F_FAC.FECFAC >= #".$date."#
+       GROUP BY F_LTA.ARTLTA;";
+        $exec = $this->conn->prepare($prices);
+        $exec -> execute();
+        $precios=$exec->fetchall(\PDO::FETCH_ASSOC);
+        foreach($precios as $pre){
+            $pri[]= $pre;
+        }
+        $stores = DB::table('stores')->where('_state', 1)->where('_type', 2)->where('_price_type', 2)->get();//se obtienen sucursales de mysql
+        foreach($stores as $store){//inicio de foreach de sucursales
+            $url = $store->local_domain."/Addicted/public/api/products/insertPricesPub";//se optiene el inicio del dominio de la sucursal
+            $ch = curl_init($url);//inicio de curl
+            $data = json_encode(["prices" => $pri]);//se codifica el arreglo de los proveedores
+            //inicio de opciones de curl
+            curl_setopt($ch, CURLOPT_POSTFIELDS,$data);//se envia por metodo post
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_HEADER, 0);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type:application/json'));
+            //fin de opciones e curl
+            $exec = curl_exec($ch);//se executa el curl
+            $exc = json_decode($exec);//se decodifican los datos decodificados
+            if(is_null($exc)){//si me regresa un null
+                $failstores[] =$store->alias." sin conexion";//la sucursal se almacena en sucursales fallidas
+            }else{
+                $stor[] =["sucursal"=>$store->alias, "mssg"=>$exc];
+            }
+            curl_close($ch);//cirre de curl
+        }//fin de foreach de sucursales
+         $res = [
+            "goals"=>$stor,
+            "fail"=>$failstores
+        ];
+        return $res;
+    }
+
+    public function highPueblaProducts(Request $request){
+        $articulos = $request->all();
+        $failstores = [];
+        $stor = [];
+        $fail = [];
+        $codigo = [] ;
+        $prices = [] ;
+        foreach($articulos as $articulo){
+
+            $products = "SELECT F_ART.CODART,F_ART.EANART,F_ART.FAMART,F_ART.DESART,F_ART.DEEART,F_ART.DETART,F_ART.DLAART,F_ART.EQUART,F_ART.CCOART,F_ART.PHAART,F_ART.REFART,F_ART.FTEART,F_ART.PCOART,F_ART.UPPART,F_ART.CANART,F_ART.CAEART,F_ART.UMEART,F_ART.CP1ART,F_ART.CP2ART,F_ART.CP3ART,F_ART.CP4ART,F_ART.CP5ART,F_ART.FALART,F_ART.FUMART,F_ART.MPTART,F_ART.UEQART FROM F_ART WHERE CODART = ?";
+            $exec = $this->conn->prepare($products);
+            $exec -> execute([$articulo['codigo']]);
+            $producto=$exec->fetch(\PDO::FETCH_ASSOC);
+            if($producto){
+            $codigo [] = $producto;
+            $prices [] = "'".$producto['CODART']."'";
+            }else{$fail[]=$articulo['codigo']." no existe el articulo";}
+        }
+        if($fail){
+            return response()->json(["msg"=>"no se puede continuar con el proceso debido a errores","fail"=>$fail]);
+        }else{
+            $prices = $this->highPueblaProductsPrices($prices);
+            $stores = DB::table('stores')->where('_state', 1)->where('_type', 2)->where('_price_type', 2)->get();//se obtienen sucursales de mysql
+            foreach($stores as $store){//inicio de foreach de sucursales
+                $url = $store->local_domain."/Addicted/public/api/products/insertPubProducts";//se optiene el inicio del dominio de la sucursal
+                $ch = curl_init($url);//inicio de curl
+                $data = json_encode(["articulos" => $codigo]);//se codifica el arreglo de los proveedores
+                //inicio de opciones de curl
+                curl_setopt($ch, CURLOPT_POSTFIELDS,$data);//se envia por metodo post
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                curl_setopt($ch, CURLOPT_HEADER, 0);
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type:application/json'));
+                //fin de opciones e curl
+                $exec = curl_exec($ch);//se executa el curl
+                $exc = json_decode($exec);//se decodifican los datos decodificados
+                if(is_null($exc)){//si me regresa un null
+                    $failstores[] =$store->alias." sin conexion";//la sucursal se almacena en sucursales fallidas
+                }else{
+                    $stor[] =["sucursal"=>$store->alias, "mssg"=>$exc];
+                }
+                curl_close($ch);//cirre de curl
+            }//fin de foreach de sucursales
+            return response()->json(["articulos"=>[
+                "goals"=>$stor,
+                "fail"=>$failstores
+            ],
+             "precios" => $prices
+            ]);
+        }
+
+    }
+    
+    public function highPueblaProductsPrices($codigo){
+        $arti = implode(",",$codigo);
+        $stor = [];
+        $failstores = [];
+        $prices = "SELECT 
+        F_LTA.ARTLTA AS CODIGO,
+        MAX(iif(F_LTA.TARLTA = 6 , F_LTA.PRELTA ,0 )) AS CENTRO,
+        MAX(iif(F_LTA.TARLTA = 5 , F_LTA.PRELTA ,0 )) AS ESPECIAL,
+        MAX(iif(F_LTA.TARLTA = 4 , F_LTA.PRELTA ,0 )) AS CAJA,
+        MAX(iif(F_LTA.TARLTA = 3 , F_LTA.PRELTA ,0 )) AS DOCENA,
+        MAX(iif(F_LTA.TARLTA = 2 , F_LTA.PRELTA ,0 )) AS MAYOREO
+        FROM F_LTA  
+        WHERE F_LTA.TARLTA NOT IN (7) AND F_LTA.ARTLTA IN ($arti)
+        GROUP BY F_LTA.ARTLTA;";
+        $exec = $this->conn->prepare($prices);
+        $exec -> execute();
+        $precios=$exec->fetchall(\PDO::FETCH_ASSOC);
+
+        foreach($precios as $pre){
+            $pri[]= $pre;
+        }
+        $stores = DB::table('stores')->where('_state', 1)->where('_type', 2)->where('_price_type', 2)->get();//se obtienen sucursales de mysql
+        foreach($stores as $store){//inicio de foreach de sucursales
+            $url = $store->local_domain."/Addicted/public/api/products/insertPricesProductPub";//se optiene el inicio del dominio de la sucursal
+            $ch = curl_init($url);//inicio de curl
+            $data = json_encode(["prices" => $pri]);//se codifica el arreglo de los proveedores
+            //inicio de opciones de curl
+            curl_setopt($ch, CURLOPT_POSTFIELDS,$data);//se envia por metodo post
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_HEADER, 0);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type:application/json'));
+            //fin de opciones e curl
+            $exec = curl_exec($ch);//se executa el curl
+            $exc = json_decode($exec);//se decodifican los datos decodificados
+            if(is_null($exc)){//si me regresa un null
+                $failstores[] =$store->alias." sin conexion";//la sucursal se almacena en sucursales fallidas
+            }else{
+                $stor[] =["sucursal"=>$store->alias, "mssg"=>$exc];
+            }
+            curl_close($ch);//cirre de curl
+        }//fin de foreach de sucursales
+         $res = [
+            "goals"=>$stor,
+            "fail"=>$failstores
+        ];
+        return $res;
+        
+    }
+
+    public function replyProducts(){
+
+    }
+
 }
