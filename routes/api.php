@@ -16,6 +16,7 @@ Route::prefix('clients')->group(function(){
     Route::get('/',[ClientsController::class,'index']);
     Route::post('/refresh',[ClientsController::class,'refreshClients']);
     Route::get('/replyClient',[ClientsController::class,'replyClient']);
+    Route::get('/conditionSpecial',[ClientsController::class,'conditionSpecial']);
 });
 
 Route::prefix('products')->group(function(){
@@ -28,4 +29,5 @@ Route::prefix('products')->group(function(){
     Route::get('/highPueblaInvoice',[ProductsController::class,'highPueblaInvoice']);
     Route::get('/highPueblaProducts',[ProductsController::class,'highPueblaProducts']);
     Route::get('/replyProducts',[ProductsController::class,'replyProducts']);
+    Route::get('/additionalsBarcode',[ProductsController::class,'additionalsBarcode']);
 });

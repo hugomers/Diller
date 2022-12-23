@@ -24,29 +24,29 @@ class ProductsController extends Controller
             "articulos"=>[]
         ];//contenedor cedis
         $stor=[];//contenedor sucursales
-        $failstore=[];
-        $msql = DB::table('products')->count();
-        $gvapp['articulos']=$msql;
+        $failstore=[];//contenedor de sucursales fallidas
+        $msql = DB::table('products')->count();//cuenta cuantos productos tiene mysql
+        $gvapp['articulos']=$msql;//los almacena en gvaap articulos 
 
-        $promysql = DB::table('products')->select('code','description')->where('_state','!=',4)->get();
-        foreach($promysql as $prom){
-            $idsms[] = "'".$prom->code."'";
+        $promysql = DB::table('products')->select('code','description')->where('_state','!=',4)->get();//se botienen codigo y descripcieon
+        foreach($promysql as $prom){//se creal el foreach de productos mysql
+            $idsms[] = "'".$prom->code."'";//se obtienen los id de los productos
         }
 
-        $count = "SELECT COUNT(*) as articulos FROM F_ART";
+        $count = "SELECT COUNT(*) as articulos FROM F_ART";//se cuentan los articulos de factusol 
         $exec = $this->conn->prepare($count);
         $exec -> execute();
         $row=$exec->fetch(\PDO::FETCH_ASSOC);
-        $cedis['articulos']=intval($row['articulos']);
+        $cedis['articulos']=intval($row['articulos']);//se guarda en articulos de cedis
 
-        $famsql = "SELECT CODART, DESART FROM F_ART WHERE CODART NOT IN  (".implode(",",$idsms).")";
+        $famsql = "SELECT CODART, DESART FROM F_ART WHERE CODART NOT IN  (".implode(",",$idsms).")";//se obtienen codigos y descripcion de productos factusol con condicion que no sean los que estan en mysql para comparadcion
         $exec = $this->conn->prepare($famsql);
         $exec -> execute();
         $fil=$exec->fetchall(\PDO::FETCH_ASSOC);
         if($fil){//se comprueba que haya filas
             $colsTab = array_keys($fil[0]);
             foreach($fil as $pro){foreach($colsTab as $col){ $pro[$col] = utf8_encode($pro[$col]); }
-            $msp[]=$pro;
+            $msp[]=$pro;//se obtienen los modelos que no estan en mysql
             }
         }
 
@@ -66,19 +66,19 @@ class ProductsController extends Controller
                 $failstore[]=$store->alias;//la sucursal se almacena en sucursales fallidas
             }else{
                 try{
-                $famsuc = "SELECT CODART, DESART FROM F_ART WHERE CODART NOT IN  (".implode(",",$exc).")";
+                $famsuc = "SELECT CODART, DESART FROM F_ART WHERE CODART NOT IN  (".implode(",",$exc).")";//query para saber que modelos no tienen en sucursales
                 $exec = $this->conn->prepare($famsuc);
                 $exec -> execute();
                 $prosu=$exec->fetchall(\PDO::FETCH_ASSOC);
                 }catch (\PDOException $e){ die($e->getMessage());}
-                if($prosu){
+                if($prosu){//se valida que existan productos
                 foreach($prosu as $arti){
-                    $falsuc[]=$arti['CODART'];
-                }}else{$falsuc[]=null;}
-                $stor[] = [
-                    "sucursal"=>$store->alias,
-                    "articulos"=>count($exc),
-                    "faltantes"=>$falsuc
+                    $falsuc[]=$arti['CODART'];//se obitienen los artiulos faltantes
+                }}else{$falsuc[]=null;}//se devuelve null en caso de no haber
+                $stor[] = [//se guarda en el contenedor de sucuresales 
+                    "sucursal"=>$store->alias,//alias de sucursal
+                    "articulos"=>count($exc),//conteo de registros
+                    "faltantes"=>$falsuc//y mdelos faltantes
                 ];//de lo contrario se almacenan en sucursales
             }
             curl_close($ch);//cirre de curl
@@ -97,20 +97,20 @@ class ProductsController extends Controller
     public function pairingProducts(){
         $failstor = [];
         $stor = [];
-        $goasl= [
+        $goals= [
             "articulos"=>[],
             "precios"=>[]
         ];
         $fails=[];
-        $proced = "SELECT CODART FROM F_ART";
+        $proced = "SELECT CODART FROM F_ART";//se obtienen los articulos actualuales de cedis
         $exec = $this->conn->prepare($proced);
         $exec -> execute();
         $fil=$exec->fetchall(\PDO::FETCH_ASSOC);
         $colsTab = array_keys($fil[0]);//llaves de el arreglo 
         foreach($fil as $row){
             foreach($colsTab as $col){ $row[$col] = utf8_encode($row[$col]); }
-            $codigo[]="'".$row['CODART']."'";
-            $mysqlcod[]=$row['CODART'];
+            $codigo[]="'".$row['CODART']."'";//se botienen ids de cedis
+            $mysqlcod[]=$row['CODART'];//se bbotienen ids de cedis
         }
         $stores = DB::table('stores')->where('_state', 1)->where('_type', 2)->where('_price_type', 1)->get();//se obtienen sucursales de mysql
         foreach($stores as $store){//inicio de foreach de sucursales
@@ -137,9 +137,9 @@ class ProductsController extends Controller
 
         DB::statement("SET SQL_SAFE_UPDATES = 0;");//se desactiva safe update
         DB::statement("SET FOREIGN_KEY_CHECKS = 0;");//se desactivan las llaves foraneas
-        DB::table('product_stock AS PS')->join('products as P','P.id','PS._product')->whereNotIn('P.code',$mysqlcod)->delete();//se vacia la tabla de proveedores
-        DB::table('product_prices as PP')->join('products as P','P.id','PP._product')->whereNotIn('P.code',$mysqlcod)->delete();
-        DB::table('products')->where('code',$mysqlcod)->update(['_state'=>4]);
+        DB::table('product_stock AS PS')->join('products as P','P.id','PS._product')->whereNotIn('P.code',$mysqlcod)->delete();//se vacia la tabla de stocks que no existan en factusol
+        DB::table('product_prices as PP')->join('products as P','P.id','PP._product')->whereNotIn('P.code',$mysqlcod)->delete();//se vacia la tabla de precios que no existan en factusol
+        DB::table('products')->whereNotIn('code',$mysqlcod)->update(['_state'=>4]);//productos que no estan en 
         DB::statement("SET SQL_SAFE_UPDATES = 1;");//se activan las llaves foraneas
         DB::statement("SET FOREIGN_KEY_CHECKS = 1;");//se activa safe update
 
@@ -1101,16 +1101,73 @@ class ProductsController extends Controller
         $date = $request->date;
         $stor = [];
         $failstores = [];
+        $insertados=[];
+        $actualizados=[];
+        $fail=[
+            "categoria"=>[],
+            "codigo_barras"=>[],
+            "codigo_corto"=>[], 
+        ];
+        $mysql=[
+            "insertados"=>[],
+            "actualizados"=>[],
+            "fail"=>[
+                "insertados"=>[],
+                "actualizados"=>[]
+            ]
+        ];
 
-        $sql = "SELECT CODART,EANART,DESART,DEEART,DETART,DLAART,EQUART,CCOART, PCOART,PHAART,REFART,FUMART,UPPART,UMEART,CP1ART,CP2ART,CP3ART,CP4ART,CP5ART,NPUART,NIAART,DSCART,MPTART,UEQART,CAEART,CANART FROM F_ART WHERE FUMART >= #".$date."#";
+        $sql = "SELECT CODART,EANART,FAMART,DESART,DEEART,DETART,DLAART,EQUART,CCOART, PCOART,PHAART,REFART,FUMART,UPPART,UMEART,CP1ART,CP2ART,CP3ART,CP4ART,CP5ART,NPUART,NIAART,DSCART,MPTART,UEQART,CAEART,CANART,FTEART FROM F_ART WHERE FUMART >= #".$date."#";
         $exec = $this->conn->prepare($sql);
         $exec -> execute();
         $articulos=$exec->fetchall(\PDO::FETCH_ASSOC);
         if($articulos){
         foreach($articulos as $articulo){
-            $arti [] = $articulo;
-            $codigos [] = "'".$articulo['CODART']."'";
+            
+            $caty = DB::table('product_categories as PC')->join('product_categories as PF', 'PF.id', '=','PC.root')->where('PC.alias', $articulo['CP1ART'])->where('PF.alias', $articulo['FAMART'])->value('PC.id');
+            if($caty){
+                $arti [] = $articulo;
+                $codigos [] = "'".$articulo['CODART']."'";
+
+                    //mysql
+                    $assortmen = DB::table('units_measures')->where('name',$articulo['CP3ART'])->value('id');
+                    $insms = [
+                        "code"=>$articulo['CODART'],
+                        "short_code"=>$articulo['CCOART'],
+                        "barcode"=>$articulo['EANART'],
+                        "description"=>$articulo['DESART'],
+                        "label"=>$articulo['DEEART'],
+                        "reference"=>$articulo['REFART'],
+                        "pieces"=>$articulo['UPPART'],
+                        "cost"=>$articulo['PCOART'],
+                        "created_at"=>now(),
+                        "updated_at"=>now(),
+                        "default_amount"=>1,
+                        "_kit"=>null,
+                        "picture"=>null,
+                        "_provider"=>$articulo['PHAART'],
+                        "_category"=>$caty,
+                        "_maker"=>$articulo['FTEART'],
+                        "_unit_mesure"=>1,
+                        "_state"=>1,
+                        "_product_additional"=>null,
+                        "_assortment_unit"=>$assortmen
+                    ];
+                    $pupdms = DB::table('products')->where('code',$articulo['CODART'])->first();
+                    if($pupdms){
+                        $insms["code"]=$pupdms->code;
+                        $updtms = DB::table('products')->where('code',$articulo['CODART'])->update($insms);
+                        if($updtms){$mysql['actualizados'][]="Se actualizo el modelo ".$articulo['CODART']." con exito";}else{$mysql['fail']['actualizados'][]="hubo problemas al actualizar el modelo ".$articulo['CODART'];}
+                    }else{
+                        $shor = DB::table('products')->where('short_code',$articulo['CCOART'])->first();
+                        if($shor){$mysql['fail']['insertados']="El codigo corto ".$art["CODIGO CORTO"]." a sido otorgado a el codigo ".$shor->code."no se puede duplicar";}else{
+                        $insmysql = DB::table('products')->insert($insms);
+                        if($insmysql){$mysql['insertados'][]="Se inserto correctamente el modelo ".$articulo['CODART'];}else{$mysql['fail']['insertados'][]="el modelo ".$articulo['CODART']." tuvo un error al insertar";}
+                        }
+                    }
+            }else{$fail['categoria'][]="no existe la categoria ".$articulo['CP1ART']." de la familia ".$articulo['FAMART']." de el producto ".$articulo['CODART'];} 
         }
+        
         $precios = $this->replyProductsPrices($codigos);
         $stores = DB::table('stores')->where('_state', 1)->where('_type', 2)->where('_price_type', 1)->get();//se obtienen sucursales de mysql
         foreach($stores as $store){//inicio de foreach de sucursales
@@ -1137,7 +1194,10 @@ class ProductsController extends Controller
          $res = [
             "articulos"=>[
             "goals"=>$stor,
-            "fail"=>$failstores
+            "fail"=>$failstores,
+            "mysql"=>$mysql,
+            "msfails"=>$fail
+            
             ],
             "precios"=>$precios
         ];
@@ -1190,11 +1250,91 @@ class ProductsController extends Controller
             }
             curl_close($ch);//cirre de curl
         }//fin de foreach de sucursales
+        $pricesms="SELECT * FROM F_LTA WHERE ARTLTA IN ($arti)";
+        $exec = $this->conn->prepare($pricesms);
+        $exec -> execute();
+        $pric=$exec->fetchall(\PDO::FETCH_ASSOC);
+        foreach($pric as $propri){
+            $idms = DB::table('products')->where('code',$propri['ARTLTA'])->value('id');
+            $updatems = DB::table('product_prices')->where('_rate',$propri['TARLTA'])->where('_product',$idms)->where('_type',1)->update(['price'=>$propri['PRELTA']]);
+        }
+
+
+
+
          $res = [
             "goals"=>$stor,
             "fail"=>$failstores
         ];
         return $res;
+    }
+
+    public function additionalsBarcode(Request $request){
+        $stor = [];
+        $failstores = [];
+        $mysql = [];
+        $failmysql = [];
+        $date = $request->date;
+        $addbar = "SELECT F_EAN.* FROM F_EAN INNER JOIN F_ART ON F_ART.CODART = F_EAN.ARTEAN WHERE FUMART = #".$date."#";
+        $exec = $this->conn->prepare($addbar);
+        $exec -> execute();
+        $barcodes=$exec->fetchall(\PDO::FETCH_ASSOC);
+        foreach($barcodes as $barcode){
+            $add [] = $barcode;
+            $idms [] = $barcode['ARTEAN']; 
+            $idfs [] = "'".$barcode['ARTEAN']."'";
+        }
+
+        DB::statement("SET SQL_SAFE_UPDATES = 0;");//se desactiva safe update
+        DB::statement("SET FOREIGN_KEY_CHECKS = 0;");//se desactivan las llaves foraneas
+        $delete = DB::table('product_additionals_barcodes AS PAB')->join('products AS P','P.id','PAB._product')->whereIN('P.code',$idms)->delete();//se vacia la tabla de clientes
+        DB::statement("SET SQL_SAFE_UPDATES = 1;");//se activan las llaves foraneas
+        DB::statement("SET FOREIGN_KEY_CHECKS = 1;");//se activa safe update
+        foreach($add as $isadd){
+            $idpro = DB::table('products')->where('code',$isadd['ARTEAN'])->value('id');
+            if($idpro){
+            $ins = [
+                "_product"=>$idpro,
+                "additional_barcode"=>$isadd['EANEAN']
+            ];
+            $mysql = "insertados correctamente";
+            $dbs = DB::table('product_additionals_barcodes')->insert($ins);
+            }else{$failmysql[]="El producto ".$isadd['ARTEAN']." no existe";}
+        }
+        
+        $stores = DB::table('stores')->where('_state', 1)->where('_type', 2)->get();//se obtienen sucursales de mysql
+        foreach($stores as $store){//inicio de foreach de sucursales
+            $url = $store->local_domain."/Addicted/public/api/products/additionalsBarcode";//se optiene el inicio del dominio de la sucursal
+            $ch = curl_init($url);//inicio de curl
+            $data = json_encode(["addbarcodes" => $add,"ids"=>$idfs]);//se codifica el arreglo de los proveedores
+            //inicio de opciones de curl
+            curl_setopt($ch, CURLOPT_POSTFIELDS,$data);//se envia por metodo post
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_HEADER, 0);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type:application/json'));
+            //fin de opciones e curl
+            $exec = curl_exec($ch);//se executa el curl
+            $exc = json_decode($exec);//se decodifican los datos decodificados
+            if(is_null($exc)){//si me regresa un null
+                $failstores[] =$store->alias." sin conexion";//la sucursal se almacena en sucursales fallidas
+            }else{
+                $stor[] =["sucursal"=>$store->alias, "mssg"=>$exc];
+            }
+            curl_close($ch);//cirre de curl
+        }//fin de foreach de sucursales
+        $res = [
+            "sucursal"=>[
+                "fail"=>$failstores,
+                "goal"=>$stor
+            ],
+            "mysql"=>[
+                "fail"=>$failmysql,
+                "goal"=>$mysql
+            ]
+            ];
+        return response()->json($res);
     }
 
 }
