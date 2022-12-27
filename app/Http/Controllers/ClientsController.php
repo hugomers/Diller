@@ -279,4 +279,49 @@ class ClientsController extends Controller
 
 
     }
+
+    public function refreshLoyaltyCard(){
+        $failstor= [];
+        $stor =[];
+
+        $select = "SELECT * FROM T_TFI";
+        $exec = $this->conn->prepare($select);
+        $exec -> execute();
+        $fil=$exec->fetchall(\PDO::FETCH_ASSOC);
+        if($fil){
+            foreach($fil as $row){
+                $req[] = $row;
+            }
+            $stores = DB::table('stores')->where('_state', 1)->where('_type', 2)->get();
+            foreach($stores as $store){//inicio de foreach de sucursales
+                $url = $store->local_domain."/Addicted/public/api/clients/refreshLoyaltyCard";//se optiene el inicio del dominio de la sucursal
+                $ch = curl_init($url);//inicio de curl
+                $data = json_encode(["tarjetas" => $req]);//se codifica el arreglo de los clientes
+                //inicio de opciones de curl
+                curl_setopt($ch,CURLOPT_POSTFIELDS,$data);//se envia por metodo post
+                curl_setopt($ch,CURLOPT_RETURNTRANSFER, 1);
+                curl_setopt($ch, CURLOPT_HEADER, 0);
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type:application/json'));
+                //fin de opciones e curl
+                $exec = curl_exec($ch);//se executa el curl
+                $exc = json_decode($exec);//se decodifican los datos decodificados
+                if(is_null($exc)){//si me regresa un null
+                    $failstor[] =$store->alias." sin conexion";//la sucursal se almacena en sucursales fallidas
+                }else{
+                    $stor [] = ["sucursal"=>$store->alias, "mssg"=>$exc];//de lo contrario se almacenan en sucursales
+                }
+                curl_close($ch);//cirre de curl
+            }//fin de foreach de sucursales
+            $res = [
+                "sucursal"=>[
+                    "goals"=>$stor,
+                    "fail"=>$failstor
+                ]
+                ];
+                return response()->json($res);
+        }else{ return response()->json("No existen tarjetas de fidelizacion");}
+        
+    }
 }

@@ -17,6 +17,7 @@ Route::prefix('clients')->group(function(){
     Route::post('/refresh',[ClientsController::class,'refreshClients']);
     Route::get('/replyClient',[ClientsController::class,'replyClient']);
     Route::get('/conditionSpecial',[ClientsController::class,'conditionSpecial']);
+    Route::get('/refreshLoyaltyCard',[ClientsController::class,'refreshLoyaltyCard']);
 });
 
 Route::prefix('products')->group(function(){
