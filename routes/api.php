@@ -5,6 +5,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProvidersController;
 use App\Http\Controllers\ClientsController;
 use App\Http\Controllers\ProductsController;
+use App\Http\Controllers\AgentsController;
+use App\Http\Controllers\CategoriesController;
 
 Route::prefix('providers')->group(function(){
     Route::get('/',[ProvidersController::class,'index']);
@@ -31,4 +33,14 @@ Route::prefix('products')->group(function(){
     Route::get('/highPueblaProducts',[ProductsController::class,'highPueblaProducts']);
     Route::get('/replyProducts',[ProductsController::class,'replyProducts']);
     Route::get('/additionalsBarcode',[ProductsController::class,'additionalsBarcode']);
+});
+
+Route::prefix('agents')->group(function(){
+    Route::get('/',[AgentsController::class,'index']);
+    Route::get('/replyAgents',[AgentsController::class,'replyAgents']);
+});
+
+Route::prefix('categories')->group(function(){
+    Route::get('/',[CategoriesController::class,'index']);
+    Route::get('/replyAgents',[CategoriesController::class,'replyAgents']);
 });
