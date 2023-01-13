@@ -98,7 +98,10 @@ class ProductsController extends Controller
         $failstor = [];
         $stor = [];
         $goals= [
-            "articulos"=>[],
+            "articulos"=>[
+                "actualizados"=>[],
+                "insertados"=>[]
+            ],
             "precios"=>[]
         ];
         $fails=[];
@@ -110,7 +113,7 @@ class ProductsController extends Controller
         foreach($fil as $row){
             foreach($colsTab as $col){ $row[$col] = utf8_encode($row[$col]); }
             $codigo[]="'".$row['CODART']."'";//se botienen ids de cedis
-            $mysqlcod[]=$row['CODART'];//se bbotienen ids de cedis
+            $mysqlcod[]="'".$row['CODART']."'";//se bbotienen ids de cedis
         }
         $stores = DB::table('stores')->where('_state', 1)->where('_type', 2)->where('_price_type', 1)->get();//se obtienen sucursales de mysql
         foreach($stores as $store){//inicio de foreach de sucursales
@@ -143,11 +146,15 @@ class ProductsController extends Controller
         DB::statement("SET SQL_SAFE_UPDATES = 1;");//se activan las llaves foraneas
         DB::statement("SET FOREIGN_KEY_CHECKS = 1;");//se activa safe update
 
-        $mysqlpro = DB::table('products')->get();
+        $mysqlpro = DB::table('products')->where('_state','!=',4)->get();
         foreach($mysqlpro as $pros){
             $codms[]="'".$pros->code."'";
         }
-        $prosu = "SELECT * FROM F_ART WHERE CODART NOT IN (".implode(",",$codms).")";
+
+        $dife = array_diff($mysqlcod,$codms);
+        $faltantes = array_values($dife);
+        if(count($faltantes)){
+        $prosu = "SELECT * FROM F_ART WHERE CODART IN (".implode(",",$faltantes).")";
         $exec = $this->conn->prepare($prosu);
         $exec -> execute();
         $msfil=$exec->fetchall(\PDO::FETCH_ASSOC);
@@ -155,71 +162,77 @@ class ProductsController extends Controller
             $colsTab = array_keys($msfil[0]);//llaves de el arreglo 
             foreach($msfil as $msnw){
                 foreach($colsTab as $col){ $msnw[$col] = utf8_encode($msnw[$col]); }
-                $ids[]="'".$msnw['CODART']."'";
-                $caty = DB::table('product_categories as PC')// SE BUSCA LA CATEGORIA DE EL PRODUCTO EN MYSQL
-                ->join('product_categories as PF', 'PF.id', '=','PC.root')
-                ->where('PC.alias', $msnw['CP1ART'])
-                ->where('PF.alias', $msnw['FAMART'])
-                ->value('PC.id'); 
-                if($caty){//debe de existir la categoria
-                    $status = $msnw['NPUART'] == 0 ? 1 : 3; //SE CAMBIA EL STATUS EN MYSQL PARA INSERTARLO
-                    $unit_assort = DB::table('units_measures')->where('name',$msnw['CP3ART'])->value('id');
-                    $ptosm = [
-                    "id"=>null,
-                    "short_code"=>INTVAL($msnw['CCOART']),
-                    "code" =>mb_convert_encoding((string)$msnw['CODART'], "UTF-8", "Windows-1252"),
-                    "barcode" =>$msnw['EANART'],
-                    "description"=>mb_convert_encoding((string)$msnw['DESART'], "UTF-8", "Windows-1252"),
-                    "label"=>mb_convert_encoding((string)$msnw['DEEART'], "UTF-8", "Windows-1252"),
-                    "reference" =>mb_convert_encoding((string)$msnw['REFART'], "UTF-8", "Windows-1252"),
-                    "pieces" =>INTVAL($msnw['UPPART']),
-                    "cost"=>$msnw['PCOART'],
-                    "created_at" =>$msnw['FALART'],
-                    "updated_at" =>$msnw['FUMART'],
-                    "default_amount" =>1,
-                    "_kit" =>NULL,
-                    "picture" =>NULL,
-                    "_provider" =>INTVAL($msnw['PHAART']),
-                    "_category" =>INTVAL($caty),
-                    "_maker" =>INTVAL($msnw['FTEART']),
-                    "_unit_mesure" =>INTVAL($msnw['UMEART']),
-                    "_state" =>INTVAL($status),
-                    "_product_additional" =>NULL,
-                    "_assortment_unit"=>$unit_assort
-                    ];
-                    try{//SE MUESTRA LOS ARTICULO QUE SE INSERTARAN                     
-                        $ptosm["created_at"]=now();
-                        $ptosm["updated_at"]=now();
-                        $insproduct = DB::table('products')->insert($ptosm);
-                        $priced = "SELECT * FROM F_LTA WHERE ARTLTA = ".$msnw['CODART'].")";
-                        $exec = $this->conn->prepare($priced);
-                        $exec -> execute();
-                        $prices=$exec->fetchall(\PDO::FETCH_ASSOC);
-                        foreach($prices as $price){
-                            $precio = $price['PRELTA'] == null ? 0 : $price['PRELTA'];
-                            $idmysql = DB::table('products')->where('code',$price['ARTLTA'])->value('id');
-                            $pricems = [
-                                "_rate"=>INTVAL($price['TARLTA']),
-                                "_type"=>1,
-                                "_product"=>$idmysql,
-                                "price"=>DOUBLEVAL($precio),
-                            ];
-                            $insertpre =  DB::table('product_prices')->insert($pricems);
-                            if($insertpre){
-                                $goals['precios']="precios de el modelo ".$price['ARTLTA']." insertado";
-                            }else{$fails[]="hubo problema con el articulo ".$price['ARTLTA'];}
-                        }
-                    }catch (\Exception $e) {$fails[]= $e ->getMessage();}
-                    $goals['articulos']="articulos insertados";                                                                                                                                                                                   
-                }else{$fails[] = "{$msnw['CODART']}: La categoria {$msnw['CP1ART']} de la familia {$msnw['FAMART']}, no se encuentra en VizApp";}//EN CASO DE NO TENER LA CATEGORIA CORRECTA MANDARA UNA ALERTA
-            }
+                $productms = DB::table('products')->where('code',$msnw['CODART'])->value('id');
+                if($productms){
+                    $updatems = DB::table('products')->where('id',$productms)->update(['_state'=>1]);
+                    $goals['articulos']['actualizados']= "se actualizo el modelo ".$msnw['CODART'];
+                }else{
+                    $ids[]="'".$msnw['CODART']."'";
+                    $caty = DB::table('product_categories as PC')// SE BUSCA LA CATEGORIA DE EL PRODUCTO EN MYSQL
+                    ->join('product_categories as PF', 'PF.id', '=','PC.root')
+                    ->where('PC.alias', $msnw['CP1ART'])
+                    ->where('PF.alias', $msnw['FAMART'])
+                    ->value('PC.id'); 
+                    if($caty){//debe de existir la categoria
+                        $status = $msnw['NPUART'] == 0 ? 1 : 3; //SE CAMBIA EL STATUS EN MYSQL PARA INSERTARLO
+                        $unit_assort = DB::table('units_measures')->where('name',$msnw['CP3ART'])->value('id');
+                        $ptosm = [
+                        "id"=>null,
+                        "short_code"=>INTVAL($msnw['CCOART']),
+                        "code" =>$msnw['CODART'],
+                        "barcode" =>$msnw['EANART'],
+                        "description"=>$msnw['DESART'],
+                        "label"=>$msnw['DEEART'],
+                        "reference" =>$msnw['REFART'],
+                        "pieces" =>INTVAL($msnw['UPPART']),
+                        "cost"=>$msnw['PCOART'],
+                        "created_at" =>$msnw['FALART'],
+                        "updated_at" =>$msnw['FUMART'],
+                        "default_amount" =>1,
+                        "_kit" =>NULL,
+                        "picture" =>NULL,
+                        "_provider" =>INTVAL($msnw['PHAART']),
+                        "_category" =>INTVAL($caty),
+                        "_maker" =>INTVAL($msnw['FTEART']),
+                        "_unit_mesure" =>INTVAL($msnw['UMEART']),
+                        "_state" =>INTVAL($status),
+                        "_product_additional" =>NULL,
+                        "_assortment_unit"=>$unit_assort
+                        ];
+                        try{//SE MUESTRA LOS ARTICULO QUE SE INSERTARAN                     
+                            $ptosm["created_at"]=now();
+                            $ptosm["updated_at"]=now();
+                            $insproduct = DB::table('products')->insert($ptosm);
+                            $priced = "SELECT * FROM F_LTA WHERE ARTLTA = ".$msnw['CODART'].")";
+                            $exec = $this->conn->prepare($priced);
+                            $exec -> execute();
+                            $prices=$exec->fetchall(\PDO::FETCH_ASSOC);
+                            foreach($prices as $price){
+                                $precio = $price['PRELTA'] == null ? 0 : $price['PRELTA'];
+                                $idmysql = DB::table('products')->where('code',$price['ARTLTA'])->value('id');
+                                $pricems = [
+                                    "_rate"=>INTVAL($price['TARLTA']),
+                                    "_type"=>1,
+                                    "_product"=>$idmysql,
+                                    "price"=>DOUBLEVAL($precio),
+                                ];
+                                $insertpre =  DB::table('product_prices')->insert($pricems);
+                                if($insertpre){
+                                    $goals['precios']="precios de el modelo ".$price['ARTLTA']." insertado";
+                                }else{$fails[]="hubo problema con el articulo ".$price['ARTLTA'];}
+                            }
+                        }catch (\Exception $e) {$fails[]= $e ->getMessage();}
+                        $goals['articulos']['insertados']="articulos ".$msnw['CODART']." insertado correctamente";                                                                                                                                                                                   
+                    }else{$fails[] = "{$msnw['CODART']}: La categoria {$msnw['CP1ART']} de la familia {$msnw['FAMART']}, no se encuentra en VizApp";}//EN CASO DE NO TENER LA CATEGORIA CORRECTA MANDARA UNA ALERTA
+                }}
         }else{$goals['articulos']="Los Articulos estan bien";}
+    }else{$goals['articulos']="Los Articulos estan bien";}
 
         $res =[
-            "sucursales"=>[
-                "goals"=>$stor,
-                "fails"=>$failstor
-            ],
+            // "sucursales"=>[
+            //     "goals"=>$stor,
+            //     "fails"=>$failstor
+            // ],
             "mysql"=>[
                 "fails"=>$fails,
                 "goals"=>$goals
