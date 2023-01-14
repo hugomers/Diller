@@ -16,44 +16,40 @@ class ProductsController extends Controller
     }
 
     public function index(){
-        $gvapp = [
+        $vizapp = [
             "articulos"=>[],
             "faltantes"=>[]
-        ];//contenedor de gvapp
-        $cedis = [
-            "articulos"=>[]
-        ];//contenedor cedis
-        $stor=[];//contenedor sucursales
-        $failstore=[];//contenedor de sucursales fallidas
-        $msql = DB::table('products')->count();//cuenta cuantos productos tiene mysql
-        $gvapp['articulos']=$msql;//los almacena en gvaap articulos 
+        ];
+        $cedis = ["articulos"=>[]];
+         
+        $failstor = []; 
+        $stor = [];
 
-        $promysql = DB::table('products')->select('code','description')->where('_state','!=',4)->get();//se botienen codigo y descripcieon
-        foreach($promysql as $prom){//se creal el foreach de productos mysql
-            $idsms[] = "'".$prom->code."'";//se obtienen los id de los productos
+        $mspro = DB::table('products')->where('_state','!=',4)->get();
+        $vizapp['articulos']=count($mspro);
+        foreach($mspro as $proms){
+            $arti[]=$proms->code;
         }
 
-        $count = "SELECT COUNT(*) as articulos FROM F_ART";//se cuentan los articulos de factusol 
-        $exec = $this->conn->prepare($count);
+        $cedpro = "SELECT CODART FROM F_ART";
+        $exec = $this->conn->prepare($cedpro);
         $exec -> execute();
-        $row=$exec->fetch(\PDO::FETCH_ASSOC);
-        $cedis['articulos']=intval($row['articulos']);//se guarda en articulos de cedis
-
-        $famsql = "SELECT CODART, DESART FROM F_ART WHERE CODART NOT IN  (".implode(",",$idsms).")";//se obtienen codigos y descripcion de productos factusol con condicion que no sean los que estan en mysql para comparadcion
-        $exec = $this->conn->prepare($famsql);
-        $exec -> execute();
-        $fil=$exec->fetchall(\PDO::FETCH_ASSOC);
-        if($fil){//se comprueba que haya filas
-            $colsTab = array_keys($fil[0]);
-            foreach($fil as $pro){foreach($colsTab as $col){ $pro[$col] = utf8_encode($pro[$col]); }
-            $msp[]=$pro;//se obtienen los modelos que no estan en mysql
-            }
+        $fact=$exec->fetchall(\PDO::FETCH_ASSOC);
+        $cedis['articulos']=count($fact);
+        foreach($fact as $proced){
+            $codi[]=$proced['CODART'];
         }
+        $dife = array_diff($codi,$arti);
+        $diferencia = array_values($dife);
+        $vizapp['faltantes']=$diferencia;
 
-        $stores = DB::table('stores')->where('_state', 1)->where('_type', 2)->where('_price_type', 1)->get();//se obtienen sucursales de mysql
+        $stores = DB::table('stores')->where('_state', 1)->where('_type', 2)->where('_price_type',1)->get();
         foreach($stores as $store){//inicio de foreach de sucursales
-            $url = $store->local_domain."/Addicted/public/api/products/";//se optiene el inicio del dominio de la sucursal
+            $url = $store->local_domain."/Addicted/public/api/products";//se optiene el inicio del dominio de la sucursal
             $ch = curl_init($url);//inicio de curl
+            $data = json_encode(["articulos" => $codi]);//se codifica el arreglo de los clientes
+            //inicio de opciones de curl
+            curl_setopt($ch,CURLOPT_POSTFIELDS,$data);//se envia por metodo post
             curl_setopt($ch,CURLOPT_RETURNTRANSFER, 1);
             curl_setopt($ch, CURLOPT_HEADER, 0);
             curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
@@ -63,35 +59,27 @@ class ProductsController extends Controller
             $exec = curl_exec($ch);//se executa el curl
             $exc = json_decode($exec);//se decodifican los datos decodificados
             if(is_null($exc)){//si me regresa un null
-                $failstore[]=$store->alias;//la sucursal se almacena en sucursales fallidas
+                $failstor[] =$store->alias." sin conexion";//la sucursal se almacena en sucursales fallidas
+                // $failstor[] =["sucursal"=>$store->alias, "mssg"=>$exec];//la sucursal se almacena en sucursales fallidas
             }else{
-                try{
-                $famsuc = "SELECT CODART, DESART FROM F_ART WHERE CODART NOT IN  (".implode(",",$exc).")";//query para saber que modelos no tienen en sucursales
-                $exec = $this->conn->prepare($famsuc);
-                $exec -> execute();
-                $prosu=$exec->fetchall(\PDO::FETCH_ASSOC);
-                }catch (\PDOException $e){ die($e->getMessage());}
-                if($prosu){//se valida que existan productos
-                foreach($prosu as $arti){
-                    $falsuc[]=$arti['CODART'];//se obitienen los artiulos faltantes
-                }}else{$falsuc[]=null;}//se devuelve null en caso de no haber
-                $stor[] = [//se guarda en el contenedor de sucuresales 
-                    "sucursal"=>$store->alias,//alias de sucursal
-                    "articulos"=>count($exc),//conteo de registros
-                    "faltantes"=>$falsuc//y mdelos faltantes
-                ];//de lo contrario se almacenan en sucursales
+                $stor [] = ["sucursal"=>$store->alias, "mssg"=>$exc];//de lo contrario se almacenan en sucursales
             }
             curl_close($ch);//cirre de curl
         }//fin de foreach de sucursales
 
-        $gvapp['faltantes']=$msp;   
-        $resp = [
+
+        $res = [
             "cedis"=>$cedis,
-            "gvapp"=>$gvapp,
-            "store"=>$stor,
-            "failstore"=>$failstore
+            "vizapp"=>$vizapp,
+            "sucursales"=>[
+                "good"=>$stor,
+                "fail"=>$failstor
+            ]
         ];
-        return response()->json($resp);
+
+        return $res;
+
+
     }
 
     public function pairingProducts(){
@@ -1136,8 +1124,11 @@ class ProductsController extends Controller
         $exec = $this->conn->prepare($sql);
         $exec -> execute();
         $articulos=$exec->fetchall(\PDO::FETCH_ASSOC);
+        
         if($articulos){
+            $colsTab = array_keys($articulos[0]);//llaves de el arreglo 
         foreach($articulos as $articulo){
+            foreach($colsTab as $col){ $articulo[$col] = utf8_encode($articulo[$col]); }
             
             $caty = DB::table('product_categories as PC')->join('product_categories as PF', 'PF.id', '=','PC.root')->where('PC.alias', $articulo['CP1ART'])->where('PF.alias', $articulo['FAMART'])->value('PC.id');
             if($caty){
@@ -1201,6 +1192,8 @@ class ProductsController extends Controller
             $exc = json_decode($exec);//se decodifican los datos decodificados
             if(is_null($exc)){//si me regresa un null
                 $failstores[] =$store->alias." sin conexion";//la sucursal se almacena en sucursales fallidas
+                // $failstores[] =["sucursal"=>$store->alias, "mssg"=>$exec];//la sucursal se almacena en sucursales fallidas
+
             }else{
                 $stor[] =["sucursal"=>$store->alias, "mssg"=>$exc];
             }

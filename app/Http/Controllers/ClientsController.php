@@ -88,7 +88,7 @@ class ClientsController extends Controller
         $delete = DB::table('clients')->truncate();//se vacia la tabla de clientes
         DB::statement("SET SQL_SAFE_UPDATES = 1;");//se activan las llaves foraneas
         DB::statement("SET FOREIGN_KEY_CHECKS = 1;");//se activa safe update
-        $sql = "SELECT CODCLI, NOFCLI, DOMCLI, POBCLI, CPOCLI, PROCLI, TELCLI, FALCLI, IDETFI, FPACLI, TARCLI, TCLCLI, NVCCLI FROM F_CLI LEFT JOIN T_TFI ON T_TFI.CLITFI = F_CLI.CODCLI";//query selector de clientes
+        $sql = "SELECT CODCLI, NOFCLI, DOMCLI, POBCLI, CPOCLI, PROCLI, TELCLI, FALCLI, IDETFI, FPACLI, TARCLI, TCLCLI, NVCCLI FROM F_CLI LEFT JOIN T_TFI ON T_TFI.CLITFI = F_CLI.CODCLI ORDER BY F_CLI.CODCLI ASC";//query selector de clientes
         $exec = $this->conn->prepare($sql);
         $exec -> execute();
         $filascli=$exec->fetchall(\PDO::FETCH_ASSOC);
@@ -100,7 +100,7 @@ class ClientsController extends Controller
                 $state = $client['NVCCLI'] == 0 ? 1 : 2;//en caso deque el campo de factusol "no vender a cliente" devuelva 0 el estado en mysql sera 1 de lo contrario sera 2
                 $phone = $client['TELCLI'] == null ? null : $client['TELCLI'];//se comprueba si es nulo el telefono
                 $clients = [//arreglo proveedores para mysql
-                    "id"=>$client['CODCLI'],//codigo cliente factusol
+                    "FS_id"=>$client['CODCLI'],//codigo cliente factusol
                     "name"=>$client['NOFCLI'],//nombre cliente factusol
                     "address"=>$client['DOMCLI']." COL. ".$client['POBCLI']." C.P. ".$client['CPOCLI']." DEL. ".$client['PROCLI'],//domicilio cliente factusol
                     "celphone"=>$phone,//telefono cliente
@@ -124,7 +124,7 @@ class ClientsController extends Controller
                 "failed"=>$fail
             ];
             return response()->json($response,201);
-        }else{return response()->json("No se encontraron proveedores",404);}
+        }else{return response()->json("No se encontraron clientes",404);}
     }
 
     public function replyClient(Request $request){//replicador de proveedores
@@ -149,7 +149,7 @@ class ClientsController extends Controller
                 $state = $row['NVCCLI'] == 0 ? 1 : 2;//se verifica el status del cliente
                 $phone = $row['TELCLI'] == null ? null : $row['TELCLI'];//se verifica el telefono del cliente
                 $clients = [//arreglo clientes para mysql
-                    "id"=>$row['CODCLI'],//codigo de cliente
+                    "FS_id"=>$row['CODCLI'],//codigo de cliente
                     "name"=>$row['NOFCLI'],//nombre del cliente
                     "address"=>$row['DOMCLI']." COL. ".$row['POBCLI']." C.P. ".$row['CPOCLI']." DEL. ".$row['PROCLI'],//domicilio de cliente
                     "celphone"=>$phone,//telefono cliente
@@ -163,15 +163,15 @@ class ClientsController extends Controller
                     "_type"=>$type,//tipo de cliente
                     "_state"=>$state,//stado de cliente
                     ];
-                $clims = DB::table('clients')->where('id',$row['CODCLI'])->first();//se busca en la base de datos de mysql si existen registros con ese id
+                $clims = DB::table('clients')->where('FS_id',$row['CODCLI'])->first();//se busca en la base de datos de mysql si existen registros con ese id
                 if($clims){//si existen cliente en mysql con ese id
-                    $clients["id"]=$clims->id;//se les otorga el id a el arreglo de clientes
-                    $updtms = DB::table('clients')->where('id',$row['CODCLI'])->update($clients);//y se actualizan los campos de los clientes
-                    $update[]= "Cliente ".$clims->id." ".$clims->name." actualizado";//se guarda en el contenedor de los clientes actualizados
+                    $clients["FS_id"]=$clims->FS_id;//se les otorga el id a el arreglo de clientes
+                    $updtms = DB::table('clients')->where('FS_id',$row['CODCLI'])->update($clients);//y se actualizan los campos de los clientes
+                    $update[]= "Cliente ".$clims->FS_id." ".$clims->name." actualizado";//se guarda en el contenedor de los clientes actualizados
                 }else{//si no existen
                 $insert = DB::table('clients')->insert($clients);//se inserta el arreglo de los clientes
                 if($insert){//si inserta
-                    $created[] = "Cliente ".$clients["id"]." ".$clients["name"]." creado correctamente";//se almacenan datos en el contenedor de creados de mysql
+                    $created[] = "Cliente ".$clients["FS_id"]." ".$clients["name"]." creado correctamente";//se almacenan datos en el contenedor de creados de mysql
                     }else{$fail[] = $clients;}//en caso contrario los almacena en fallidos de mysql
                 }
             }//termino de foreach de proovedores
@@ -229,10 +229,11 @@ class ClientsController extends Controller
         if($fil){
             foreach($fil as $con){
                 $special[] = $con;
+                $ids = DB::table('clients')->where('FS_id',$con['CLIPRC'])->value('id');
                 $idproduc = DB::table('products')->where('code',$con['ARTPRC'])->value('id');
                 if($idproduc){
                     $insms = [
-                        "_client"=>$con['CLIPRC'],
+                        "_client"=>$ids,
                         "_product"=>$idproduc,
                         "price"=>$con['PREPRC']
                     ];
