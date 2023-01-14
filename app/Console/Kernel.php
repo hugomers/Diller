@@ -28,7 +28,7 @@ class Kernel extends ConsoleKernel
             if($workpoint == 1){
                 $sday = DB::table('sales')->whereDate('created_at',$date)->where('_store',$workpoint)->get();
                 if(count($sday) == 0){
-                    $sfsday = "SELECT TIPFAC&'-'&CODFAC AS TICKET, CLIFAC AS CLIENTE, CNOFAC AS NOMCLI, USUFAC AS USUARIO, ALMFAC AS ALMACEN, TOTFAC AS TOTAL, FOPFAC AS FORMAP, FORMAT(FECFAC,'YYYY-mm-dd')&' '&FORMAT(HORFAC,'HH:mm:ss') AS CREACION, '45' AS TERMINAL FROM F_FAC WHERE FECFAC =DATE() AND TIPFAC = '8' AND REFFAC  NOT LIKE '%CREDITO%'";
+                    $sfsday = "SELECT TIPFAC&'-'&CODFAC AS TICKET, CLIFAC AS CLIENTE, CNOFAC AS NOMCLI, USUFAC AS USUARIO, ALMFAC AS ALMACEN, TOTFAC AS TOTAL, FOPFAC AS FORMAP, FORMAT(FECFAC,'YYYY-mm-dd')&' '&FORMAT(HORFAC,'HH:mm:ss') AS CREACION, '45' AS TERMINAL FROM F_FAC WHERE FECFAC =DATE() AND TIPFAC = '8' AND REFFAC  NOT LIKE '%CREDITO%' AND REFFAC NOT LIKE '%OCUPAR%'";
                     $exec = $this->conn->prepare($sfsday);
                     $exec -> execute();
                     $fact=$exec->fetchall(\PDO::FETCH_ASSOC);
@@ -99,7 +99,7 @@ class Kernel extends ConsoleKernel
                     foreach($sday as $sale){
                         $fact[]="'".$sale->num_ticket."'";
                     }
-                    $sfsday = "SELECT TIPFAC&'-'&CODFAC AS TICKET, CLIFAC AS CLIENTE, CNOFAC AS NOMCLI, USUFAC AS USUARIO, ALMFAC AS ALMACEN, TOTFAC AS TOTAL, FOPFAC AS FORMAP, FORMAT(FECFAC,'YYYY-mm-dd')&' '&FORMAT(HORFAC,'HH:mm:ss') AS CREACION, '45' AS TERMINAL FROM F_FAC WHERE FECFAC =DATE() AND TIPFAC = '8' AND REFFAC  NOT LIKE '%CREDITO%' AND TIPFAC&'-'&CODFAC NOT IN (".implode(",",$fact).")";
+                    $sfsday = "SELECT TIPFAC&'-'&CODFAC AS TICKET, CLIFAC AS CLIENTE, CNOFAC AS NOMCLI, USUFAC AS USUARIO, ALMFAC AS ALMACEN, TOTFAC AS TOTAL, FOPFAC AS FORMAP, FORMAT(FECFAC,'YYYY-mm-dd')&' '&FORMAT(HORFAC,'HH:mm:ss') AS CREACION, '45' AS TERMINAL FROM F_FAC WHERE FECFAC =DATE() AND TIPFAC = '8' AND REFFAC  NOT LIKE '%CREDITO%'AND REFFAC NOT LIKE '%OCUPAR%' AND TIPFAC&'-'&CODFAC NOT IN (".implode(",",$fact).")";
                     $exec = $this->conn->prepare($sfsday);
                     $exec -> execute();
                     $fact=$exec->fetchall(\PDO::FETCH_ASSOC);
@@ -168,7 +168,7 @@ class Kernel extends ConsoleKernel
                     }else{echo "No hay facturas que replicar bro";}    
                 }
             }
-        })->everyMinute();
+        })->everyMinute()->between('8:00','22:00');
     }
 
     /**

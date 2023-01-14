@@ -105,6 +105,7 @@ class ProductsController extends Controller
             "precios"=>[]
         ];
         $fails=[];
+
         $proced = "SELECT CODART FROM F_ART";//se obtienen los articulos actualuales de cedis
         $exec = $this->conn->prepare($proced);
         $exec -> execute();
@@ -113,8 +114,9 @@ class ProductsController extends Controller
         foreach($fil as $row){
             foreach($colsTab as $col){ $row[$col] = utf8_encode($row[$col]); }
             $codigo[]="'".$row['CODART']."'";//se botienen ids de cedis
-            $mysqlcod[]="'".$row['CODART']."'";//se bbotienen ids de cedis
+            $mysqlcod[]=$row['CODART'];//se bbotienen ids de cedis
         }
+
         $stores = DB::table('stores')->where('_state', 1)->where('_type', 2)->where('_price_type', 1)->get();//se obtienen sucursales de mysql
         foreach($stores as $store){//inicio de foreach de sucursales
             $url = $store->local_domain."/Addicted/public/api/products/pairing";//se optiene el inicio del dominio de la sucursal
@@ -132,8 +134,9 @@ class ProductsController extends Controller
             $exc = json_decode($exec);//se decodifican los datos decodificados
             if(is_null($exc)){//si me regresa un null
                 $failstor[] =$store->alias." sin conexion";//la sucursal se almacena en sucursales fallidas
+                // $failstor[] =["sucursal"=>$store->alias, "mssg"=>$exec];//la sucursal se almacena en sucursales fallidas
             }else{
-                $stor [] = $store->alias;//de lo contrario se almacenan en sucursales
+                $stor [] = ["sucursal"=>$store->alias, "mssg"=>$exc];//de lo contrario se almacenan en sucursales
             }
             curl_close($ch);//cirre de curl
         }//fin de foreach de sucursales
@@ -151,23 +154,23 @@ class ProductsController extends Controller
             $codms[]="'".$pros->code."'";
         }
 
-        $dife = array_diff($mysqlcod,$codms);
+        $dife = array_diff($codigo,$codms);
         $faltantes = array_values($dife);
-        if(count($faltantes)){
-        $prosu = "SELECT * FROM F_ART WHERE CODART IN (".implode(",",$faltantes).")";
-        $exec = $this->conn->prepare($prosu);
-        $exec -> execute();
-        $msfil=$exec->fetchall(\PDO::FETCH_ASSOC);
-        if($msfil){
+
+        if(count($faltantes) > 0){
+        
+            $prosu = "SELECT * FROM F_ART WHERE CODART IN (".implode(",",$faltantes).")";
+            $exec = $this->conn->prepare($prosu);
+            $exec -> execute();
+            $msfil=$exec->fetchall(\PDO::FETCH_ASSOC);
             $colsTab = array_keys($msfil[0]);//llaves de el arreglo 
             foreach($msfil as $msnw){
                 foreach($colsTab as $col){ $msnw[$col] = utf8_encode($msnw[$col]); }
                 $productms = DB::table('products')->where('code',$msnw['CODART'])->value('id');
                 if($productms){
                     $updatems = DB::table('products')->where('id',$productms)->update(['_state'=>1]);
-                    $goals['articulos']['actualizados']= "se actualizo el modelo ".$msnw['CODART'];
+                    $goals['articulos']['actualizados'][]= "se actualizo el modelo ".$msnw['CODART'];
                 }else{
-                    $ids[]="'".$msnw['CODART']."'";
                     $caty = DB::table('product_categories as PC')// SE BUSCA LA CATEGORIA DE EL PRODUCTO EN MYSQL
                     ->join('product_categories as PF', 'PF.id', '=','PC.root')
                     ->where('PC.alias', $msnw['CP1ART'])
@@ -218,21 +221,20 @@ class ProductsController extends Controller
                                 ];
                                 $insertpre =  DB::table('product_prices')->insert($pricems);
                                 if($insertpre){
-                                    $goals['precios']="precios de el modelo ".$price['ARTLTA']." insertado";
+                                    $goals['precios'][]="precios de el modelo ".$price['ARTLTA']." insertado";
                                 }else{$fails[]="hubo problema con el articulo ".$price['ARTLTA'];}
                             }
                         }catch (\Exception $e) {$fails[]= $e ->getMessage();}
-                        $goals['articulos']['insertados']="articulos ".$msnw['CODART']." insertado correctamente";                                                                                                                                                                                   
+                        $goals['articulos']['insertados'][]="articulo ".$msnw['CODART']." insertado correctamente";                                                                                                                                                                                   
                     }else{$fails[] = "{$msnw['CODART']}: La categoria {$msnw['CP1ART']} de la familia {$msnw['FAMART']}, no se encuentra en VizApp";}//EN CASO DE NO TENER LA CATEGORIA CORRECTA MANDARA UNA ALERTA
-                }}
+            }}
         }else{$goals['articulos']="Los Articulos estan bien";}
-    }else{$goals['articulos']="Los Articulos estan bien";}
 
         $res =[
-            // "sucursales"=>[
-            //     "goals"=>$stor,
-            //     "fails"=>$failstor
-            // ],
+            "sucursales"=>[
+                "goals"=>$stor,
+                "fails"=>$failstor
+            ],
             "mysql"=>[
                 "fails"=>$fails,
                 "goals"=>$goals
@@ -243,7 +245,7 @@ class ProductsController extends Controller
 
     public function missingProducts(Request $request){
         $sucpro = $request->products;
-        $proced = "SELECT CODART,EANART,FAMART,DESART,DEEART,DETART,DLAART,EQUART,CCOART,PHAART,REFART,FTEART,PCOART,FALART,FUMART,UPPART,CANART,CAEART,UMEART,CP1ART,CP2ART,CP3ART,CP4ART,CP5ART,MPTART,UEQART FROM F_ART WHERE CODART NOT IN (".implode(",",$sucpro).")";
+        $proced = "SELECT CODART,EANART,FAMART,DESART,DEEART,DETART,DLAART,EQUART,CCOART,PHAART,REFART,FTEART,PCOART,FALART,FUMART,UPPART,CANART,CAEART,UMEART,CP1ART,CP2ART,CP3ART,CP4ART,CP5ART,MPTART,UEQART FROM F_ART WHERE CODART IN (".implode(",",$sucpro).")";
         $exec = $this->conn->prepare($proced);
         $exec -> execute();
         $fil=$exec->fetchall(\PDO::FETCH_ASSOC);
