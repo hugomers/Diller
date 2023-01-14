@@ -93,6 +93,7 @@ class Kernel extends ConsoleKernel
                             }
                             $insert = DB::table('sale_collection_lines')->insert($pagos);
                         }
+                        echo "Se añadieron ".count($fact)." facturas";
                     }else{echo "No hay facturas que replicar bro";}    
                 }else{
                     foreach($sday as $sale){
@@ -163,6 +164,7 @@ class Kernel extends ConsoleKernel
                             }
                             $insert = DB::table('sale_collection_lines')->insert($pagos);
                         }
+                        echo "Se añadieron ".count($fact)." facturas";
                     }else{echo "No hay facturas que replicar bro";}    
                 }
             }
