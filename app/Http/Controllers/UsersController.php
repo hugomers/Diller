@@ -256,8 +256,8 @@ try{
             $exec = curl_exec($ch);//se executa el curl
             $exc = json_decode($exec);//se decodifican los datos decodificados
             if(is_null($exc)){//si me regresa un null
-                // $failstor[] =$store->alias." Sin conexion";//la sucursal se almacena en sucursales fallidas
-                $failstor[] =["sucursal"=>$store->alias, "mssg"=>$exec];//la sucursal se almacena en sucursales fallidas
+                $failstor[] =$store->alias." Sin conexion";//la sucursal se almacena en sucursales fallidas
+                // $failstor[] =["sucursal"=>$store->alias, "mssg"=>$exec];//la sucursal se almacena en sucursales fallidas
 
             }else{
                 $stor [] = ["sucursal"=>$store->alias, "mssg"=>$exc];//de lo contrario se almacenan en sucursales
