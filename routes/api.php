@@ -6,6 +6,7 @@ use App\Http\Controllers\ProvidersController;
 use App\Http\Controllers\ClientsController;
 use App\Http\Controllers\ProductsController;
 use App\Http\Controllers\AgentsController;
+use App\Http\Controllers\UsersController;
 use App\Http\Controllers\CategoriesController;
 
 Route::prefix('providers')->group(function(){
@@ -38,6 +39,11 @@ Route::prefix('products')->group(function(){
 Route::prefix('agents')->group(function(){
     Route::get('/',[AgentsController::class,'index']);
     Route::get('/replyAgents',[AgentsController::class,'replyAgents']);
+    Route::get('/createuser',[AgentsController::class,'createuser']);
+});
+
+Route::prefix('users')->group(function(){
+    Route::get('/createuser',[UsersController::class,'createuser']);
 });
 
 Route::prefix('categories')->group(function(){
