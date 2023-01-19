@@ -100,7 +100,7 @@ class ProvidersController extends Controller
             $colsTab = array_keys($filaspro[0]);//llaves
             foreach($filaspro as $provider){foreach($colsTab as $col){ $provider[$col] = utf8_encode($provider[$col]); }//se codifican bien las llaves
                 $providers = [//arreglo proveedores para mysql
-                    "id"=>$provider['CODPRO'],
+                    "fs_id"=>$provider['CODPRO'],
                     "fiscal_name"=>$provider['NOFPRO'],
                     "address"=> json_encode([
                         "domicilio"=>$provider['DOMPRO'],

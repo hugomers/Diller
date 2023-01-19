@@ -165,6 +165,7 @@ class ProductsController extends Controller
                     ->where('PF.alias', $msnw['FAMART'])
                     ->value('PC.id'); 
                     if($caty){//debe de existir la categoria
+                        $provider = DB::table('providers')->where('fs_id',$msnw['PHAART'])->value('id');
                         $status = $msnw['NPUART'] == 0 ? 1 : 3; //SE CAMBIA EL STATUS EN MYSQL PARA INSERTARLO
                         $unit_assort = DB::table('units_measures')->where('name',$msnw['CP3ART'])->value('id');
                         $ptosm = [
@@ -182,7 +183,7 @@ class ProductsController extends Controller
                         "default_amount" =>1,
                         "_kit" =>NULL,
                         "picture" =>NULL,
-                        "_provider" =>INTVAL($msnw['PHAART']),
+                        "_provider" =>$provider,
                         "_category" =>INTVAL($caty),
                         "_maker" =>INTVAL($msnw['FTEART']),
                         "_unit_mesure" =>INTVAL($msnw['UMEART']),
@@ -469,6 +470,7 @@ class ProductsController extends Controller
             if($caty){
                 //mysql
                 $assortmen = DB::table('units_measures')->where('name',$cp3art)->value('id');
+                $provider = DB::table('providers')->where('fs_id',$art["PROVEEDOR"])->value('id');
                 $insms = [
                     "code"=>$codigo,
                     "short_code"=>$art["CODIGO CORTO"],
@@ -483,7 +485,7 @@ class ProductsController extends Controller
                     "default_amount"=>1,
                     "_kit"=>null,
                     "picture"=>null,
-                    "_provider"=>$art["PROVEEDOR"],
+                    "_provider"=>$provider,
                     "_category"=>$caty,
                     "_maker"=>$art["FABRICANTE"],
                     "_unit_mesure"=>1,
@@ -1136,6 +1138,7 @@ class ProductsController extends Controller
                 $codigos [] = "'".$articulo['CODART']."'";
 
                     //mysql
+                    $provider = DB::table('providers')->where('fs_id',$articulo['PHAART'])->value('id');
                     $assortmen = DB::table('units_measures')->where('name',$articulo['CP3ART'])->value('id');
                     $insms = [
                         "code"=>$articulo['CODART'],
@@ -1151,7 +1154,7 @@ class ProductsController extends Controller
                         "default_amount"=>1,
                         "_kit"=>null,
                         "picture"=>null,
-                        "_provider"=>$articulo['PHAART'],
+                        "_provider"=>$provider,
                         "_category"=>$caty,
                         "_maker"=>$articulo['FTEART'],
                         "_unit_mesure"=>1,
