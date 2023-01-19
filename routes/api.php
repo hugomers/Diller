@@ -48,5 +48,4 @@ Route::prefix('users')->group(function(){
 
 Route::prefix('categories')->group(function(){
     Route::get('/',[CategoriesController::class,'index']);
-    Route::get('/test',[CategoriesController::class,'test']);
 });
