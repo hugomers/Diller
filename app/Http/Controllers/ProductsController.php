@@ -234,6 +234,7 @@ class ProductsController extends Controller
 
     public function missingProducts(Request $request){
         $sucpro = $request->products;
+        if($sucpro){
         $proced = "SELECT CODART,EANART,FAMART,DESART,DEEART,DETART,DLAART,EQUART,CCOART,PHAART,REFART,FTEART,PCOART,FALART,FUMART,UPPART,CANART,CAEART,UMEART,CP1ART,CP2ART,CP3ART,CP4ART,CP5ART,MPTART,UEQART FROM F_ART WHERE CODART IN (".implode(",",$sucpro).")";
         $exec = $this->conn->prepare($proced);
         $exec -> execute();
@@ -255,6 +256,7 @@ class ProductsController extends Controller
         return response()->json(["articulos"=>$codigo,
                                 "precios"=>$pri]);
         }else{return response()->json(null);}
+        } else{return response()->json(null);}  
     }
 
     public function replaceProducts(Request $request){
