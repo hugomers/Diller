@@ -8,6 +8,7 @@ use App\Http\Controllers\ProductsController;
 use App\Http\Controllers\AgentsController;
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\CategoriesController;
+use App\Http\Controllers\AssistController;
 
 Route::prefix('providers')->group(function(){
     Route::get('/',[ProvidersController::class,'index']);
@@ -50,4 +51,10 @@ Route::prefix('categories')->group(function(){
     Route::get('/',[CategoriesController::class,'index']);
     Route::get('/test',[CategoriesController::class,'test']);
 
+});
+
+Route::prefix('assist')->group(function(){
+    Route::post('/createUser',[AssistController::class,'createUser']);
+    Route::get('/replyAssist',[AssistController::class,'replyAssist']);
+    Route::post('/addDevices',[AssistController::class,'addDevices']);
 });

@@ -5,6 +5,7 @@ namespace App\Console;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\DB;
+use Rats\Zkteco\Lib\ZKTeco;
 
 class Kernel extends ConsoleKernel
 {
@@ -532,6 +533,34 @@ class Kernel extends ConsoleKernel
             }else{echo "No hay stock para replicar";}
     
         })->everyMinute()->between('8:00','22:00');
+
+        $schedule->call(function (){//replicador de el reloj checador
+            $zkteco = env('ZKTECO_DEVICE');
+            $zk = new ZKTeco($zkteco);
+            if($zk->connect()){
+                $assists = $zk->getAttendance();
+                if($assists){
+                    foreach($assists as $assist){
+                        $serie = ltrim(stristr($zk->serialNumber(),'='),'=');
+                        $sucursal = DB::table('assist_devices')->where('serial_number',$serie)->first();
+                        $user = DB::table('users')->where('RC_id',intval($assist['id']))->value('id');
+                        $report = [
+                        "auid" => $assist['uid'],//id checada checador
+                        "register" => $assist['timestamp'], //horario
+                        "_user" => $user,//id del usuario
+                        "_store"=> $sucursal->_store,
+                        "_type"=>$assist['type'],//entrada y salida
+                        "_class"=>$assist['state'],
+                        "_device"=>$sucursal->id,
+                        ];
+                        $insert = DB::table('assists')->insert($report);
+                    }
+                    $replicadas = count($assists);
+                    $zk -> clearAttendance();
+                    echo "se replicaron ".$replicadas." asistencias";
+                }else{echo "No hay registros por el momento";}
+            }else{echo "No hay conexion a el checador",501;}
+        })->everyFiveMinutes()->between('8:00','22:00');
     }
 
     /**
