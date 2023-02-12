@@ -78,33 +78,36 @@ class WarehousesController extends Controller
         $id = $request->id;
         $consolidation = DB::table('consolidations AS C')->join('warehouses as W','W.id','C._warehouse')->where('C.id',$id)->select('W.alias as almacen','C.*')->first();
         if($consolidation){
-            if($consolidation->_state == 3){
-                $bodies = DB::table('consolidation_bodies AS CB')->join('products AS P','P.id','CB._product')->where('CB._consolidation',$id)->select('P.code AS codigo','CB.before_count AS antes','CB.count AS contado')->get();
-                foreach($bodies as $bodie){
-                    $articulos [] = $bodie->codigo;
-                    $ins = [
-                        $consolidation->almacen,
-                        now()->format('Y-m-d'),
-                        $bodie->codigo,
-                        $bodie->antes,
-                        $bodie->contado,
-                        $bodie->antes,
-                        $bodie->contado,
-                    ];
-                    $insertfs = "INSERT INTO F_CIN (ALMCIN,FECCIN,ARTCIN,UACCIN,URECIN,DACCIN,DRECIN) VALUES (?,?,?,?,?,?,?)";
-                    $exec = $this->conn->prepare($insertfs);
-                    $exec -> execute($ins);
+            if($consolidation->fs_aplication == 0){
+                if($consolidation->_state == 3){
+                    $bodies = DB::table('consolidation_bodies AS CB')->join('products AS P','P.id','CB._product')->where('CB._consolidation',$id)->select('P.code AS codigo','CB.before_count AS antes','CB.count AS contado')->get();
+                    foreach($bodies as $bodie){
+                            $articulos [] = $bodie->codigo;
+                            $ins = [
+                                $consolidation->almacen,
+                                now()->format('Y-m-d'),
+                                $bodie->codigo,
+                                $bodie->antes,
+                                $bodie->contado,
+                                $bodie->antes,
+                                $bodie->contado,
+                            ];
+                            $insertfs = "INSERT INTO F_CIN (ALMCIN,FECCIN,ARTCIN,UACCIN,URECIN,DACCIN,DRECIN) VALUES (?,?,?,?,?,?,?)";
+                            $exec = $this->conn->prepare($insertfs);
+                            $exec -> execute($ins);
 
-                    $upddestiny = "UPDATE F_STO SET ACTSTO = $bodie->contado, DISSTO = $bodie->contado WHERE ARTSTO = ? AND ALMSTO = ? ";
-                    $exec = $this->conn->prepare($upddestiny);
-                    $exec -> execute([$bodie->codigo,$consolidation->almacen]);
-                }
-                $res = [
-                    "almacenConsolidado"=>$consolidation->almacen,
-                    "articulosConsolidados"=>count($articulos)
-                ];
-                return response()->json($res,201);
-            }else{return response()->json("La consolidacion requerida aun no ha finalizado",400);}
+                            $upddestiny = "UPDATE F_STO SET ACTSTO = $bodie->contado, DISSTO = $bodie->contado WHERE ARTSTO = ? AND ALMSTO = ? ";
+                            $exec = $this->conn->prepare($upddestiny);
+                            $exec -> execute([$bodie->codigo,$consolidation->almacen]);
+                    }
+                    $updinsfs = DB::table('consolidations')->where('id',$id)->update(['fs_aplication'=>1]);
+                    $res = [
+                        "almacenConsolidado"=>$consolidation->almacen,
+                        "articulosConsolidados"=>count($articulos)
+                    ];
+                    return response()->json($res,201);
+                }else{return response()->json("La consolidacion requerida aun no ha finalizado",400);}
+            }else{return response()->json("La consolidacion ya estaba registrada en factusol",400);}
         }else{return response()->json("No se encuntra ninguan consolidacion con el id ".$id,404);}
 
 

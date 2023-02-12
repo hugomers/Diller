@@ -10,6 +10,7 @@ use App\Http\Controllers\UsersController;
 use App\Http\Controllers\CategoriesController;
 use App\Http\Controllers\AssistController;
 use App\Http\Controllers\WarehousesController;
+use App\Http\Controllers\PurchasesController;
 
 Route::prefix('providers')->group(function(){
     Route::get('/',[ProvidersController::class,'index']);
@@ -63,4 +64,9 @@ Route::prefix('assist')->group(function(){
 Route::prefix('warehouses')->group(function(){
     Route::post('/transferbw',[WarehousesController::class,'transferWarehouse']);
     Route::post('/consolidation',[WarehousesController::class,'consolidation']);
+});
+
+Route::prefix('purchases')->group(function(){
+    Route::post('/requestSupplier',[PurchasesController::class,'requestSupplier']);
+    Route::post('/invoiceReceived',[PurchasesController::class,'invoiceReceived']);
 });

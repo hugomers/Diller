@@ -175,202 +175,202 @@ class Kernel extends ConsoleKernel
             }
         })->everyMinute()->between('8:00','22:00');
 
-        $schedule->call(function (){//replicador de compras solo existira en cedis se ejecutara cada 30 min
-            $date = now()->format('Y-m-d');
-            $purshday = DB::table('purchases')->whereDate('created_at',$date)->get();
-            $workpoint = env('WORKPOINT');
-            if(count($purshday) == 0){
-                $cfsday = "SELECT
-                TIPFRE&'-'&CODFRE AS COMPRA,
-                FACFRE AS FACTURA,
-                PROFRE AS PROVIE,
-                PNOFRE AS NOMPRO,
-                ALMFRE AS ALMACEN,
-                TOTFRE AS TOTAL,
-                '13' AS PAGO,
-                OB1FRE AS OBSERVA,
-                IIF(HORFRE = '', FORMAT(FECFRE,'YYYY-mm-dd')&' '&'00:00:00', FORMAT(FENFRE,'YYYY-mm-dd')&' '&FORMAT(HORFRE,'HH:mm:ss')) AS FECHA_ENTREGA,
-                FORMAT(FECFRE,'YYYY-mm-dd')&' '&'00:00:00' AS FECHA
-                FROM F_FRE
-                WHERE FECFRE = DATE()";
-                $exec = $this->conn->prepare($cfsday);
-                $exec -> execute();
-                $fact=$exec->fetchall(\PDO::FETCH_ASSOC);
-                if($fact){
-                    $colsTab = array_keys($fact[0]);
-                    foreach($fact as $reci){
-                        foreach($colsTab as $col){ $reci[$col] = utf8_encode($reci[$col]); }
-                        $provider = DB::table('providers')->where('fs_id',$reci['PROVIE'])->value('id');
-                        $pcom[] = "'".$reci['COMPRA']."'"; 
-                        $warehouse = DB::table('warehouses')->where('alias',$reci['ALMACEN'])->where('_store',$workpoint)->value('id');
-                        $factu = [
-                            "num_purchase"=>$reci['COMPRA'],
-                            "num_invoice"=>$reci['FACTURA'],
-                            "_provider"=>$provider,
-                            "name"=>$reci['NOMPRO'],
-                            "_warehouse"=>$warehouse,
-                            "total"=>$reci['TOTAL'],
-                            "_payment"=>$reci['PAGO'],
-                            "observation"=>$reci['OBSERVA'],
-                            "delivery_date"=>$reci['FECHA_ENTREGA'],
-                            "created_at"=>$reci['FECHA'],
-                            "updated_at"=>now(),//->toDateTimeString(),
-                        ];
-                        $insertms = DB::table('purchases')->insert($factu);
-                    }
-                    $cspr = "SELECT
-                    TIPLFR&'-'&CODLFR AS COMPRA,
-                    ARTLFR AS ARTICULO,
-                    CANLFR AS CANTIDAD,
-                    PRELFR AS PRECIO,
-                    TOTLFR AS TOTAL
-                    FROM F_LFR
-                    WHERE TIPLFR&'-'&CODLFR IN (".implode(",",$pcom).")";
-                    $exec = $this->conn->prepare($cspr);
-                    $exec -> execute();
-                    $pro=$exec->fetchall(\PDO::FETCH_ASSOC);
-                    foreach($pro as $prms){
-                        $product = DB::table('products')->where('code',$prms['ARTICULO'])->value('id');
-                        $purcha = DB::table('purchases')->where('num_purchase',$prms['COMPRA'])->value('id');
-                        $propu = [
-                            "_purchase"=>$purcha,
-                            "_product"=>$product,
-                            "amount"=>$prms['CANTIDAD'],
-                            "price"=>$prms['PRECIO'],
-                            "total"=>$prms['TOTAL']
-                        ];
-                        $insertpr = DB::table('purchase_bodies')->insert($propu);
-                    }
-                    $paym = "SELECT 
-                    TFRLPF&'-'&CFRLPF AS COMPRA,
-                    IMPLPF AS IMPORTE,
-                    CPTLPF AS CONCEPTO,
-                    IIF(F_CNP.DESCNP LIKE '%EFECTIVO%','EFECTIVO CEDIS', F_CNP.DESCNP) AS PAGO,
-                    FORMAT(FECLPF,'YYYY-mm-dd')&' '&'00:00:00' AS FECHA
-                    FROM F_LPF
-                    LEFT JOIN F_CNP ON F_LPF.CPALPF  = F_CNP.CODCNP
-                    WHERE F_CNP.TIPCNP = 1 AND  TFRLPF&'-'&CFRLPF IN (".implode(",",$pcom).")";
-                    $exec = $this->conn->prepare($paym);
-                    $exec -> execute();
-                    $paymen=$exec->fetchall(\PDO::FETCH_ASSOC);
-                    if($paymen){
-                        $colsTab = array_keys($paymen[0]);
-                        foreach($paymen as $pago){
-                            foreach($colsTab as $col){ $pago[$col] = utf8_encode($pago[$col]); }
-                            $purpay = DB::table('purchases')->where('num_purchase',$pago['COMPRA'])->value('id');
-                            $payme = DB::table('payment_methods AS PM')->join('counterparts AS C','C.id','PM._counterpart')->where('PM._type',5)->where('C.name',$pago['PAGO'])->select('PM.id')->get();
-                            foreach($payme as $pk){$res = $pk;}
+        // $schedule->call(function (){//replicador de compras solo existira en cedis se ejecutara cada 30 min
+        //     $date = now()->format('Y-m-d');
+        //     $purshday = DB::table('purchases')->whereDate('created_at',$date)->get();
+        //     $workpoint = env('WORKPOINT');
+        //     if(count($purshday) == 0){
+        //         $cfsday = "SELECT
+        //         TIPFRE&'-'&CODFRE AS COMPRA,
+        //         FACFRE AS FACTURA,
+        //         PROFRE AS PROVIE,
+        //         PNOFRE AS NOMPRO,
+        //         ALMFRE AS ALMACEN,
+        //         TOTFRE AS TOTAL,
+        //         '13' AS PAGO,
+        //         OB1FRE AS OBSERVA,
+        //         IIF(HORFRE = '', FORMAT(FECFRE,'YYYY-mm-dd')&' '&'00:00:00', FORMAT(FENFRE,'YYYY-mm-dd')&' '&FORMAT(HORFRE,'HH:mm:ss')) AS FECHA_ENTREGA,
+        //         FORMAT(FECFRE,'YYYY-mm-dd')&' '&'00:00:00' AS FECHA
+        //         FROM F_FRE
+        //         WHERE FECFRE = DATE()";
+        //         $exec = $this->conn->prepare($cfsday);
+        //         $exec -> execute();
+        //         $fact=$exec->fetchall(\PDO::FETCH_ASSOC);
+        //         if($fact){
+        //             $colsTab = array_keys($fact[0]);
+        //             foreach($fact as $reci){
+        //                 foreach($colsTab as $col){ $reci[$col] = utf8_encode($reci[$col]); }
+        //                 $provider = DB::table('providers')->where('fs_id',$reci['PROVIE'])->value('id');
+        //                 $pcom[] = "'".$reci['COMPRA']."'"; 
+        //                 $warehouse = DB::table('warehouses')->where('alias',$reci['ALMACEN'])->where('_store',$workpoint)->value('id');
+        //                 $factu = [
+        //                     "num_purchase"=>$reci['COMPRA'],
+        //                     "num_invoice"=>$reci['FACTURA'],
+        //                     "_provider"=>$provider,
+        //                     "name"=>$reci['NOMPRO'],
+        //                     "_warehouse"=>$warehouse,
+        //                     "total"=>$reci['TOTAL'],
+        //                     "_payment"=>$reci['PAGO'],
+        //                     "observation"=>$reci['OBSERVA'],
+        //                     "delivery_date"=>$reci['FECHA_ENTREGA'],
+        //                     "created_at"=>$reci['FECHA'],
+        //                     "updated_at"=>now(),//->toDateTimeString(),
+        //                 ];
+        //                 $insertms = DB::table('purchases')->insert($factu);
+        //             }
+        //             $cspr = "SELECT
+        //             TIPLFR&'-'&CODLFR AS COMPRA,
+        //             ARTLFR AS ARTICULO,
+        //             CANLFR AS CANTIDAD,
+        //             PRELFR AS PRECIO,
+        //             TOTLFR AS TOTAL
+        //             FROM F_LFR
+        //             WHERE TIPLFR&'-'&CODLFR IN (".implode(",",$pcom).")";
+        //             $exec = $this->conn->prepare($cspr);
+        //             $exec -> execute();
+        //             $pro=$exec->fetchall(\PDO::FETCH_ASSOC);
+        //             foreach($pro as $prms){
+        //                 $product = DB::table('products')->where('code',$prms['ARTICULO'])->value('id');
+        //                 $purcha = DB::table('purchases')->where('num_purchase',$prms['COMPRA'])->value('id');
+        //                 $propu = [
+        //                     "_purchase"=>$purcha,
+        //                     "_product"=>$product,
+        //                     "amount"=>$prms['CANTIDAD'],
+        //                     "price"=>$prms['PRECIO'],
+        //                     "total"=>$prms['TOTAL']
+        //                 ];
+        //                 $insertpr = DB::table('purchase_bodies')->insert($propu);
+        //             }
+        //             $paym = "SELECT 
+        //             TFRLPF&'-'&CFRLPF AS COMPRA,
+        //             IMPLPF AS IMPORTE,
+        //             CPTLPF AS CONCEPTO,
+        //             IIF(F_CNP.DESCNP LIKE '%EFECTIVO%','EFECTIVO CEDIS', F_CNP.DESCNP) AS PAGO,
+        //             FORMAT(FECLPF,'YYYY-mm-dd')&' '&'00:00:00' AS FECHA
+        //             FROM F_LPF
+        //             LEFT JOIN F_CNP ON F_LPF.CPALPF  = F_CNP.CODCNP
+        //             WHERE F_CNP.TIPCNP = 1 AND  TFRLPF&'-'&CFRLPF IN (".implode(",",$pcom).")";
+        //             $exec = $this->conn->prepare($paym);
+        //             $exec -> execute();
+        //             $paymen=$exec->fetchall(\PDO::FETCH_ASSOC);
+        //             if($paymen){
+        //                 $colsTab = array_keys($paymen[0]);
+        //                 foreach($paymen as $pago){
+        //                     foreach($colsTab as $col){ $pago[$col] = utf8_encode($pago[$col]); }
+        //                     $purpay = DB::table('purchases')->where('num_purchase',$pago['COMPRA'])->value('id');
+        //                     $payme = DB::table('payment_methods AS PM')->join('counterparts AS C','C.id','PM._counterpart')->where('PM._type',5)->where('C.name',$pago['PAGO'])->select('PM.id')->get();
+        //                     foreach($payme as $pk){$res = $pk;}
 
-                            $paypur = [
-                                "_purchase"=>$purpay,
-                                "total"=>$pago['IMPORTE'],
-                                "concept"=>$pago['CONCEPTO'],
-                                "_payment"=>$res->id,
-                                "created_at"=>$pago['FECHA']
-                            ];
-                            $insertpay =DB::table('purchase_payment_lines')->insert($paypur);
-                        }
+        //                     $paypur = [
+        //                         "_purchase"=>$purpay,
+        //                         "total"=>$pago['IMPORTE'],
+        //                         "concept"=>$pago['CONCEPTO'],
+        //                         "_payment"=>$res->id,
+        //                         "created_at"=>$pago['FECHA']
+        //                     ];
+        //                     $insertpay =DB::table('purchase_payment_lines')->insert($paypur);
+        //                 }
                         
-                    }echo "Se insertaron ".count($fact)." facturas recibidas";
-                }else{echo "No hay compras para replicar";}
-            }else{
-                foreach($purshday as $purchase){
-                    $idsp[]="'".$purchase->num_purchase."'";
-                }
-                $cfsday = "SELECT
-                TIPFRE&'-'&CODFRE AS COMPRA,
-                FACFRE AS FACTURA,
-                PROFRE AS PROVIE,
-                PNOFRE AS NOMPRO,
-                ALMFRE AS ALMACEN,
-                TOTFRE AS TOTAL,
-                '13' AS PAGO,
-                OB1FRE AS OBSERVA,
-                IIF(HORFRE = '', FORMAT(FECFRE,'YYYY-mm-dd')&' '&'00:00:00', FORMAT(FENFRE,'YYYY-mm-dd')&' '&FORMAT(HORFRE,'HH:mm:ss')) AS FECHA_ENTREGA,
-                FORMAT(FECFRE,'YYYY-mm-dd')&' '&'00:00:00' AS FECHA
-                FROM F_FRE
-                WHERE FECFRE = DATE() AND TIPFRE&'-'&CODFRE NOT IN (".implode(",",$idsp).")";
-                $exec = $this->conn->prepare($cfsday);
-                $exec -> execute();
-                $fact=$exec->fetchall(\PDO::FETCH_ASSOC);
-                if($fact){
-                    $colsTab = array_keys($fact[0]);
-                    foreach($fact as $reci){
-                        foreach($colsTab as $col){ $reci[$col] = utf8_encode($reci[$col]); }
-                        $pcom[] = "'".$reci['COMPRA']."'"; 
-                        $provider = DB::table('providers')->where('fs_id',$reci['PROVIE'])->value('id');
-                        $warehouse = DB::table('warehouses')->where('alias',$reci['ALMACEN'])->where('_store',$workpoint)->value('id');
-                        $factu = [
-                            "num_purchase"=>$reci['COMPRA'],
-                            "num_invoice"=>$reci['FACTURA'],
-                            "_provider"=>$provider,
-                            "name"=>$reci['NOMPRO'],
-                            "_warehouse"=>$warehouse,
-                            "total"=>$reci['TOTAL'],
-                            "_payment"=>$reci['PAGO'],
-                            "observation"=>$reci['OBSERVA'],
-                            "delivery_date"=>$reci['FECHA_ENTREGA'],
-                            "created_at"=>$reci['FECHA'],
-                            "updated_at"=>now(),//->toDateTimeString(),
-                        ];
-                        $insertms = DB::table('purchases')->insert($factu);
-                    }
-                    $cspr = "SELECT
-                    TIPLFR&'-'&CODLFR AS COMPRA,
-                    ARTLFR AS ARTICULO,
-                    CANLFR AS CANTIDAD,
-                    PRELFR AS PRECIO,
-                    TOTLFR AS TOTAL
-                    FROM F_LFR
-                    WHERE TIPLFR&'-'&CODLFR IN (".implode(",",$pcom).")";
-                    $exec = $this->conn->prepare($cspr);
-                    $exec -> execute();
-                    $pro=$exec->fetchall(\PDO::FETCH_ASSOC);
-                    foreach($pro as $prms){
-                        $product = DB::table('products')->where('code',$prms['ARTICULO'])->value('id');
-                        $purcha = DB::table('purchases')->where('num_purchase',$prms['COMPRA'])->value('id');
-                        $propu = [
-                            "_purchase"=>$purcha,
-                            "_product"=>$product,
-                            "amount"=>$prms['CANTIDAD'],
-                            "price"=>$prms['PRECIO'],
-                            "total"=>$prms['TOTAL']
-                        ];
-                        $insertpr = DB::table('purchase_bodies')->insert($propu);
-                    }
-                    $paym = "SELECT 
-                    TFRLPF&'-'&CFRLPF AS COMPRA,
-                    IMPLPF AS IMPORTE,
-                    CPTLPF AS CONCEPTO,
-                    IIF(F_CNP.DESCNP LIKE '%EFECTIVO%','EFECTIVO CEDIS', F_CNP.DESCNP) AS PAGO,
-                    FORMAT(FECLPF,'YYYY-mm-dd')&' '&'00:00:00' AS FECHA
-                    FROM F_LPF
-                    LEFT JOIN F_CNP ON F_LPF.CPALPF  = F_CNP.CODCNP
-                    WHERE F_CNP.TIPCNP = 1 AND  TFRLPF&'-'&CFRLPF IN (".implode(",",$pcom).")";
-                    $exec = $this->conn->prepare($paym);
-                    $exec -> execute();
-                    $paymen=$exec->fetchall(\PDO::FETCH_ASSOC);
-                    if($paymen){
-                        $colsTab = array_keys($paymen[0]);
-                        foreach($paymen as $pago){
-                            foreach($colsTab as $col){ $pago[$col] = utf8_encode($pago[$col]); }
-                            $payme = DB::table('payment_methods AS PM')->join('counterparts AS C','C.id','PM._counterpart')->where('PM._type',5)->where('C.name',$pago['PAGO'])->select('PM.id')->get();
-                            $purpay = DB::table('purchases')->where('num_purchase',$pago['COMPRA'])->value('id');
-                            foreach($payme as $pk){$res = $pk;}
-                            $paypur = [
-                                "_purchase"=>$purpay,
-                                "total"=>$pago['IMPORTE'],
-                                "concept"=>$pago['CONCEPTO'],
-                                "_payment"=>$res->id,
-                                "created_at"=>$pago['FECHA']
-                            ];
-                            $insertpay =DB::table('purchase_payment_lines')->insert($paypur);
-                        }
-                    }
-                    echo "Se insertaron ".count($fact)." facturas recibidas";
-                }else{echo "No hay compras para replicar";}
-            }
-        })->everyThirtyMinutes()->between('8:00','22:00');
+        //             }echo "Se insertaron ".count($fact)." facturas recibidas";
+        //         }else{echo "No hay compras para replicar";}
+        //     }else{
+        //         foreach($purshday as $purchase){
+        //             $idsp[]="'".$purchase->num_purchase."'";
+        //         }
+        //         $cfsday = "SELECT
+        //         TIPFRE&'-'&CODFRE AS COMPRA,
+        //         FACFRE AS FACTURA,
+        //         PROFRE AS PROVIE,
+        //         PNOFRE AS NOMPRO,
+        //         ALMFRE AS ALMACEN,
+        //         TOTFRE AS TOTAL,
+        //         '13' AS PAGO,
+        //         OB1FRE AS OBSERVA,
+        //         IIF(HORFRE = '', FORMAT(FECFRE,'YYYY-mm-dd')&' '&'00:00:00', FORMAT(FENFRE,'YYYY-mm-dd')&' '&FORMAT(HORFRE,'HH:mm:ss')) AS FECHA_ENTREGA,
+        //         FORMAT(FECFRE,'YYYY-mm-dd')&' '&'00:00:00' AS FECHA
+        //         FROM F_FRE
+        //         WHERE FECFRE = DATE() AND TIPFRE&'-'&CODFRE NOT IN (".implode(",",$idsp).")";
+        //         $exec = $this->conn->prepare($cfsday);
+        //         $exec -> execute();
+        //         $fact=$exec->fetchall(\PDO::FETCH_ASSOC);
+        //         if($fact){
+        //             $colsTab = array_keys($fact[0]);
+        //             foreach($fact as $reci){
+        //                 foreach($colsTab as $col){ $reci[$col] = utf8_encode($reci[$col]); }
+        //                 $pcom[] = "'".$reci['COMPRA']."'"; 
+        //                 $provider = DB::table('providers')->where('fs_id',$reci['PROVIE'])->value('id');
+        //                 $warehouse = DB::table('warehouses')->where('alias',$reci['ALMACEN'])->where('_store',$workpoint)->value('id');
+        //                 $factu = [
+        //                     "num_purchase"=>$reci['COMPRA'],
+        //                     "num_invoice"=>$reci['FACTURA'],
+        //                     "_provider"=>$provider,
+        //                     "name"=>$reci['NOMPRO'],
+        //                     "_warehouse"=>$warehouse,
+        //                     "total"=>$reci['TOTAL'],
+        //                     "_payment"=>$reci['PAGO'],
+        //                     "observation"=>$reci['OBSERVA'],
+        //                     "delivery_date"=>$reci['FECHA_ENTREGA'],
+        //                     "created_at"=>$reci['FECHA'],
+        //                     "updated_at"=>now(),//->toDateTimeString(),
+        //                 ];
+        //                 $insertms = DB::table('purchases')->insert($factu);
+        //             }
+        //             $cspr = "SELECT
+        //             TIPLFR&'-'&CODLFR AS COMPRA,
+        //             ARTLFR AS ARTICULO,
+        //             CANLFR AS CANTIDAD,
+        //             PRELFR AS PRECIO,
+        //             TOTLFR AS TOTAL
+        //             FROM F_LFR
+        //             WHERE TIPLFR&'-'&CODLFR IN (".implode(",",$pcom).")";
+        //             $exec = $this->conn->prepare($cspr);
+        //             $exec -> execute();
+        //             $pro=$exec->fetchall(\PDO::FETCH_ASSOC);
+        //             foreach($pro as $prms){
+        //                 $product = DB::table('products')->where('code',$prms['ARTICULO'])->value('id');
+        //                 $purcha = DB::table('purchases')->where('num_purchase',$prms['COMPRA'])->value('id');
+        //                 $propu = [
+        //                     "_purchase"=>$purcha,
+        //                     "_product"=>$product,
+        //                     "amount"=>$prms['CANTIDAD'],
+        //                     "price"=>$prms['PRECIO'],
+        //                     "total"=>$prms['TOTAL']
+        //                 ];
+        //                 $insertpr = DB::table('purchase_bodies')->insert($propu);
+        //             }
+        //             $paym = "SELECT 
+        //             TFRLPF&'-'&CFRLPF AS COMPRA,
+        //             IMPLPF AS IMPORTE,
+        //             CPTLPF AS CONCEPTO,
+        //             IIF(F_CNP.DESCNP LIKE '%EFECTIVO%','EFECTIVO CEDIS', F_CNP.DESCNP) AS PAGO,
+        //             FORMAT(FECLPF,'YYYY-mm-dd')&' '&'00:00:00' AS FECHA
+        //             FROM F_LPF
+        //             LEFT JOIN F_CNP ON F_LPF.CPALPF  = F_CNP.CODCNP
+        //             WHERE F_CNP.TIPCNP = 1 AND  TFRLPF&'-'&CFRLPF IN (".implode(",",$pcom).")";
+        //             $exec = $this->conn->prepare($paym);
+        //             $exec -> execute();
+        //             $paymen=$exec->fetchall(\PDO::FETCH_ASSOC);
+        //             if($paymen){
+        //                 $colsTab = array_keys($paymen[0]);
+        //                 foreach($paymen as $pago){
+        //                     foreach($colsTab as $col){ $pago[$col] = utf8_encode($pago[$col]); }
+        //                     $payme = DB::table('payment_methods AS PM')->join('counterparts AS C','C.id','PM._counterpart')->where('PM._type',5)->where('C.name',$pago['PAGO'])->select('PM.id')->get();
+        //                     $purpay = DB::table('purchases')->where('num_purchase',$pago['COMPRA'])->value('id');
+        //                     foreach($payme as $pk){$res = $pk;}
+        //                     $paypur = [
+        //                         "_purchase"=>$purpay,
+        //                         "total"=>$pago['IMPORTE'],
+        //                         "concept"=>$pago['CONCEPTO'],
+        //                         "_payment"=>$res->id,
+        //                         "created_at"=>$pago['FECHA']
+        //                     ];
+        //                     $insertpay =DB::table('purchase_payment_lines')->insert($paypur);
+        //                 }
+        //             }
+        //             echo "Se insertaron ".count($fact)." facturas recibidas";
+        //         }else{echo "No hay compras para replicar";}
+        //     }
+        // })->everyThirtyMinutes()->between('8:00','22:00'); no se replicaran compras se generaran directo en la aplicacion
 
         $schedule->call(function (){//replicador de stock de cedis se ejecuta cada minuto
             $factusol = [];
