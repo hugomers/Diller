@@ -11,6 +11,7 @@ use App\Http\Controllers\CategoriesController;
 use App\Http\Controllers\AssistController;
 use App\Http\Controllers\WarehousesController;
 use App\Http\Controllers\PurchasesController;
+use App\Http\Controllers\HomologationsController;
 
 Route::prefix('providers')->group(function(){
     Route::get('/',[ProvidersController::class,'index']);
@@ -69,4 +70,9 @@ Route::prefix('warehouses')->group(function(){
 Route::prefix('purchases')->group(function(){
     Route::post('/requestSupplier',[PurchasesController::class,'requestSupplier']);
     Route::post('/invoiceReceived',[PurchasesController::class,'invoiceReceived']);
+});
+
+Route::prefix('homologations')->group(function(){
+    Route::put('/homologationClients',[HomologationsController::class,'homologationClients']);
+    Route::put('/products',[HomologationsController::class,'products']);
 });

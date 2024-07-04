@@ -89,10 +89,9 @@ class AssistController extends Controller
                             $insert = DB::table('assist_devices')->insert($device);
                             return response()->json(["msg"=>"insertado correctamente","dispositivo"=>$device],201);
                         }else{return response()->json("El numero de serie ya existe en el registro de el checador ".$dev->nick_name,404);}
-                    
+
                 }else{return response()->json("La direccion IP ya se encuentra registrada en el reloj checador ".$ip->nick_name,404);}
             }else{return response()->json("No existe ninguna sucursal con el alias ".$request->store,404);}
         }else{return response()->json("No hay conexion a el checador",501);}
-
     }
 }
